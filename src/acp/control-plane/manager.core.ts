@@ -1591,7 +1591,11 @@ export class AcpSessionManager {
   }
 
   private isRecoverableAcpxExitError(message: string): boolean {
-    return /^acpx exited with (code \d+|signal [a-z0-9]+)/i.test(message.trim());
+    const normalized = message.trim();
+    return (
+      /^acpx exited with (code \d+|signal [a-z0-9]+)/i.test(normalized) ||
+      /\bqueue owner\b.*\bunavailable\b/i.test(normalized)
+    );
   }
 
   private async evictIdleRuntimeHandles(params: { cfg: OpenClawConfig }): Promise<void> {
