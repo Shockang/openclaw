@@ -1,8 +1,6 @@
 import type { ChannelId } from "../channels/plugins/types.js";
 import {
   CHANNEL_IDS,
-  getChatChannelMeta,
-  getRegisteredChannelPluginMeta,
   listRegisteredChannelPluginAliases,
   listRegisteredChannelPluginIds,
   listChatChannelAliases,
@@ -20,6 +18,16 @@ import {
 
 export const INTERNAL_MESSAGE_CHANNEL = "webchat" as const;
 export type InternalMessageChannel = typeof INTERNAL_MESSAGE_CHANNEL;
+
+const MARKDOWN_CAPABLE_CHANNELS = new Set<string>([
+  "slack",
+  "telegram",
+  "signal",
+  "discord",
+  "googlechat",
+  "tui",
+  INTERNAL_MESSAGE_CHANNEL,
+]);
 
 export { GATEWAY_CLIENT_NAMES, GATEWAY_CLIENT_MODES };
 export type { GatewayClientName, GatewayClientMode };
@@ -131,12 +139,5 @@ export function isMarkdownCapableMessageChannel(raw?: string | null): boolean {
   if (!channel) {
     return false;
   }
-  if (channel === INTERNAL_MESSAGE_CHANNEL || channel === "tui") {
-    return true;
-  }
-  const builtInChannel = normalizeChatChannelId(channel);
-  if (builtInChannel) {
-    return getChatChannelMeta(builtInChannel).markdownCapable === true;
-  }
-  return getRegisteredChannelPluginMeta(channel)?.markdownCapable === true;
+  return MARKDOWN_CAPABLE_CHANNELS.has(channel);
 }

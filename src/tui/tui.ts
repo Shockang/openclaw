@@ -203,7 +203,6 @@ export async function runTui(opts: TuiOptions) {
   let initialSessionApplied = false;
   let currentSessionId: string | null = null;
   let activeChatRunId: string | null = null;
-  let pendingOptimisticUserMessage = false;
   let historyLoaded = false;
   let isConnected = false;
   let wasDisconnected = false;
@@ -274,12 +273,6 @@ export async function runTui(opts: TuiOptions) {
     },
     set activeChatRunId(value) {
       activeChatRunId = value;
-    },
-    get pendingOptimisticUserMessage() {
-      return pendingOptimisticUserMessage;
-    },
-    set pendingOptimisticUserMessage(value) {
-      pendingOptimisticUserMessage = value;
     },
     get historyLoaded() {
       return historyLoaded;
@@ -719,7 +712,6 @@ export async function runTui(opts: TuiOptions) {
     setActivityStatus,
     refreshSessionInfo,
     loadHistory,
-    noteLocalRunId,
     isLocalRunId,
     forgetLocalRunId,
     clearLocalRunIds,

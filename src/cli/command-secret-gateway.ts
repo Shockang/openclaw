@@ -57,12 +57,10 @@ type GatewaySecretsResolveResult = {
 const WEB_RUNTIME_SECRET_TARGET_ID_PREFIXES = [
   "tools.web.search",
   "tools.web.fetch.firecrawl",
-  "tools.web.x_search",
 ] as const;
 const WEB_RUNTIME_SECRET_PATH_PREFIXES = [
   "tools.web.search.",
   "tools.web.fetch.firecrawl.",
-  "tools.web.x_search.",
 ] as const;
 
 function normalizeCommandSecretResolutionMode(
@@ -108,10 +106,6 @@ function classifyRuntimeWebTargetPathState(params: {
     return fetch?.enabled !== false && fetch?.firecrawl?.enabled !== false ? "active" : "inactive";
   }
 
-  if (params.path === "tools.web.x_search.apiKey") {
-    return params.config.tools?.web?.x_search?.enabled !== false ? "active" : "inactive";
-  }
-
   if (params.path === "tools.web.search.apiKey") {
     return params.config.tools?.web?.search?.enabled !== false ? "active" : "inactive";
   }
@@ -148,12 +142,6 @@ function describeInactiveRuntimeWebTargetPath(params: {
       return "tools.web.fetch.firecrawl.enabled is false.";
     }
     return undefined;
-  }
-
-  if (params.path === "tools.web.x_search.apiKey") {
-    return params.config.tools?.web?.x_search?.enabled === false
-      ? "tools.web.x_search is disabled."
-      : undefined;
   }
 
   if (params.path === "tools.web.search.apiKey") {
@@ -328,9 +316,7 @@ function isUnsupportedSecretsResolveError(err: unknown): boolean {
 
 function isDirectRuntimeWebTargetPath(path: string): boolean {
   return (
-    path === "tools.web.fetch.firecrawl.apiKey" ||
-    path === "tools.web.x_search.apiKey" ||
-    /^tools\.web\.search\.[^.]+\.apiKey$/.test(path)
+    path === "tools.web.fetch.firecrawl.apiKey" || /^tools\.web\.search\.[^.]+\.apiKey$/.test(path)
   );
 }
 

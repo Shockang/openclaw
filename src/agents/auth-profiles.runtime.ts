@@ -1,6 +1,6 @@
-import { ensureAuthProfileStore as ensureAuthProfileStoreImpl } from "./auth-profiles/store.js";
+import { ensureAuthProfileStore as ensureAuthProfileStoreImpl } from "./auth-profiles.js";
 
-type EnsureAuthProfileStore = typeof import("./auth-profiles/store.js").ensureAuthProfileStore;
+type EnsureAuthProfileStore = typeof import("./auth-profiles.js").ensureAuthProfileStore;
 
 export function ensureAuthProfileStore(
   ...args: Parameters<EnsureAuthProfileStore>

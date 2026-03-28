@@ -1,6 +1,6 @@
 import { splitMediaFromOutput } from "../../media/parse.js";
 import { parseInlineDirectives } from "../../utils/directive-tags.js";
-import { isSilentReplyPayloadText, SILENT_REPLY_TOKEN } from "../tokens.js";
+import { isSilentReplyText, SILENT_REPLY_TOKEN } from "../tokens.js";
 
 export type ReplyDirectiveParseResult = {
   text: string;
@@ -31,7 +31,7 @@ export function parseReplyDirectives(
   }
 
   const silentToken = options.silentToken ?? SILENT_REPLY_TOKEN;
-  const isSilent = isSilentReplyPayloadText(text, silentToken);
+  const isSilent = isSilentReplyText(text, silentToken);
   if (isSilent) {
     text = "";
   }

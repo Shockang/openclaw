@@ -47,7 +47,6 @@ function buildCommonSystemParams(workspaceDir: string) {
     "memory_search",
     "memory_get",
     "web_search",
-    "x_search",
     "web_fetch",
   ];
   const toolSummaries = buildToolSummaryMap(
@@ -159,7 +158,6 @@ function buildToolRichSystemPrompt(params: {
     "memory_search",
     "memory_get",
     "web_search",
-    "x_search",
     "web_fetch",
   ].map((name) => ({ ...createStubTool(name), description: `${name} tool` }));
   return buildEmbeddedSystemPrompt({

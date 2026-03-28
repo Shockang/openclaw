@@ -4247,7 +4247,7 @@ export const GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA = [
     pluginId: "googlechat",
     channelId: "googlechat",
     label: "Google Chat",
-    description: "Google Workspace Chat app with HTTP webhook.",
+    description: "Google Workspace Chat app via HTTP webhooks.",
     schema: {
       $schema: "http://json-schema.org/draft-07/schema#",
       type: "object",
@@ -6233,7 +6233,7 @@ export const GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA = [
     pluginId: "line",
     channelId: "line",
     label: "LINE",
-    description: "LINE Messaging API webhook bot.",
+    description: "LINE Messaging API bot for Japan/Taiwan/Thailand markets.",
     schema: {
       $schema: "http://json-schema.org/draft-07/schema#",
       type: "object",
@@ -6510,70 +6510,7 @@ export const GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA = [
           type: "string",
         },
         accessToken: {
-          anyOf: [
-            {
-              type: "string",
-            },
-            {
-              oneOf: [
-                {
-                  type: "object",
-                  properties: {
-                    source: {
-                      type: "string",
-                      const: "env",
-                    },
-                    provider: {
-                      type: "string",
-                      pattern: "^[a-z][a-z0-9_-]{0,63}$",
-                    },
-                    id: {
-                      type: "string",
-                      pattern: "^[A-Z][A-Z0-9_]{0,127}$",
-                    },
-                  },
-                  required: ["source", "provider", "id"],
-                  additionalProperties: false,
-                },
-                {
-                  type: "object",
-                  properties: {
-                    source: {
-                      type: "string",
-                      const: "file",
-                    },
-                    provider: {
-                      type: "string",
-                      pattern: "^[a-z][a-z0-9_-]{0,63}$",
-                    },
-                    id: {
-                      type: "string",
-                    },
-                  },
-                  required: ["source", "provider", "id"],
-                  additionalProperties: false,
-                },
-                {
-                  type: "object",
-                  properties: {
-                    source: {
-                      type: "string",
-                      const: "exec",
-                    },
-                    provider: {
-                      type: "string",
-                      pattern: "^[a-z][a-z0-9_-]{0,63}$",
-                    },
-                    id: {
-                      type: "string",
-                    },
-                  },
-                  required: ["source", "provider", "id"],
-                  additionalProperties: false,
-                },
-              ],
-            },
-          ],
+          type: "string",
         },
         password: {
           anyOf: [
@@ -7710,9 +7647,6 @@ export const GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA = [
         chunkMode: {
           type: "string",
           enum: ["length", "newline"],
-        },
-        blockStreaming: {
-          type: "boolean",
         },
         blockStreamingCoalesce: {
           type: "object",

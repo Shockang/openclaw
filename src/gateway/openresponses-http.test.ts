@@ -71,7 +71,6 @@ async function postResponses(port: number, body: unknown, headers?: Record<strin
     headers: {
       "content-type": "application/json",
       authorization: "Bearer secret",
-      "x-openclaw-scopes": "operator.write",
       ...headers,
     },
     body: JSON.stringify(body),

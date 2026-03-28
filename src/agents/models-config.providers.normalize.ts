@@ -1,5 +1,5 @@
 import type { OpenClawConfig } from "../config/config.js";
-import { ensureAuthProfileStore } from "./auth-profiles/store.js";
+import { ensureAuthProfileStore } from "./auth-profiles.js";
 import {
   normalizeProviderSpecificConfig,
   resolveProviderConfigApiKeyResolver,
@@ -30,17 +30,9 @@ export function normalizeProviders(params: {
     return providers;
   }
   const env = params.env ?? process.env;
-  let authStore: ReturnType<typeof ensureAuthProfileStore> | undefined;
-  const resolveProfileApiKey = (providerKey: string) => {
-    authStore ??= ensureAuthProfileStore(params.agentDir, {
-      allowKeychainPrompt: false,
-    });
-    return resolveApiKeyFromProfiles({
-      provider: providerKey,
-      store: authStore,
-      env,
-    });
-  };
+  const authStore = ensureAuthProfileStore(params.agentDir, {
+    allowKeychainPrompt: false,
+  });
   let mutated = false;
   const next: Record<string, ProviderConfig> = {};
 
@@ -62,11 +54,16 @@ export function normalizeProviders(params: {
       mutated = true;
       normalizedProvider = { ...normalizedProvider, headers: normalizedHeaders.headers };
     }
+    const profileApiKey = resolveApiKeyFromProfiles({
+      provider: normalizedKey,
+      store: authStore,
+      env,
+    });
     const providerWithConfiguredApiKey = normalizeConfiguredProviderApiKey({
       providerKey: normalizedKey,
       provider: normalizedProvider,
       secretDefaults: params.secretDefaults,
-      profileApiKey: undefined,
+      profileApiKey,
       secretRefManagedProviders: params.secretRefManagedProviders,
     });
     if (providerWithConfiguredApiKey !== normalizedProvider) {
@@ -89,24 +86,13 @@ export function normalizeProviders(params: {
       normalizedProvider = providerWithResolvedEnvApiKey;
     }
 
-    const needsProfileApiKey =
-      Array.isArray(normalizedProvider.models) &&
-      normalizedProvider.models.length > 0 &&
-      !(
-        (typeof normalizedProvider.apiKey === "string" && normalizedProvider.apiKey.trim()) ||
-        normalizedProvider.apiKey
-      );
-    const profileApiKey = needsProfileApiKey ? resolveProfileApiKey(normalizedKey) : undefined;
-    const providerApiKeyResolver = needsProfileApiKey
-      ? resolveProviderConfigApiKeyResolver(normalizedKey)
-      : undefined;
     const providerWithApiKey = resolveMissingProviderApiKey({
       providerKey: normalizedKey,
       provider: normalizedProvider,
       env,
       profileApiKey,
       secretRefManagedProviders: params.secretRefManagedProviders,
-      providerApiKeyResolver,
+      providerApiKeyResolver: resolveProviderConfigApiKeyResolver(normalizedKey),
     });
     if (providerWithApiKey !== normalizedProvider) {
       mutated = true;

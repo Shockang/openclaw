@@ -19,7 +19,6 @@ async function flushWarnings(): Promise<void> {
 describe("warning filter", () => {
   beforeEach(() => {
     resetWarningFilterInstallState();
-    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
   });
 
   afterEach(() => {

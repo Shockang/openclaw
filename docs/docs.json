@@ -1146,7 +1146,6 @@
                     ]
                   },
                   "tools/btw",
-                  "tools/code-execution",
                   "tools/diffs",
                   "tools/elevated",
                   "tools/exec",

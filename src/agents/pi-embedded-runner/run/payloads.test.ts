@@ -90,10 +90,4 @@ describe("buildEmbeddedRunPayloads tool-error warnings", () => {
       didSendDeterministicApprovalPrompt: true,
     });
   });
-
-  it("suppresses JSON NO_REPLY assistant payloads", () => {
-    expectNoPayloads({
-      assistantTexts: ['{"action":"NO_REPLY"}'],
-    });
-  });
 });

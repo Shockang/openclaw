@@ -4,6 +4,7 @@ import type { ModelCompatConfig } from "../config/types.models.js";
 import type { ToolLoopDetectionConfig } from "../config/types.tools.js";
 import { resolveMergedSafeBinProfileFixtures } from "../infra/exec-safe-bin-runtime-policy.js";
 import { logWarn } from "../logger.js";
+import { hasNativeWebSearchTool } from "../plugins/provider-model-compat.js";
 import { getPluginToolMeta } from "../plugins/tools.js";
 import { isSubagentSessionKey } from "../routing/session-key.js";
 import { resolveGatewayMessageChannel } from "../utils/message-channel.js";
@@ -66,6 +67,7 @@ function isOpenAIProvider(provider?: string) {
 const TOOL_DENY_BY_MESSAGE_PROVIDER: Readonly<Record<string, readonly string[]>> = {
   voice: ["tts"],
 };
+const TOOL_DENY_FOR_XAI_PROVIDERS = new Set(["web_search"]);
 const MEMORY_FLUSH_ALLOWED_TOOL_NAMES = new Set(["read", "write"]);
 
 function normalizeMessageProvider(messageProvider?: string): string | undefined {
@@ -93,8 +95,12 @@ function applyModelProviderToolPolicy(
   tools: AnyAgentTool[],
   params?: { modelCompat?: ModelCompatConfig },
 ): AnyAgentTool[] {
-  void params;
-  return tools;
+  if (!hasNativeWebSearchTool(params?.modelCompat)) {
+    return tools;
+  }
+  // Models with a native web_search tool cannot receive OpenClaw's
+  // web_search at the same time or the request will collide.
+  return tools.filter((tool) => !TOOL_DENY_FOR_XAI_PROVIDERS.has(tool.name));
 }
 
 function isApplyPatchAllowedForModel(params: {

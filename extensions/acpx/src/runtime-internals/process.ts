@@ -265,7 +265,6 @@ export async function spawnAndCollect(
   stdout: string;
   stderr: string;
   code: number | null;
-  signal: NodeJS.Signals | null;
   error: Error | null;
 }> {
   if (runtime?.signal?.aborted) {
@@ -273,7 +272,6 @@ export async function spawnAndCollect(
       stdout: "",
       stderr: "",
       code: null,
-      signal: null,
       error: createAbortError(),
     };
   }
@@ -318,7 +316,6 @@ export async function spawnAndCollect(
       stdout,
       stderr,
       code: exit.code,
-      signal: exit.signal,
       error: aborted ? createAbortError() : exit.error,
     };
   } finally {

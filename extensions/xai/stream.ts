@@ -47,9 +47,6 @@ export function createXaiToolPayloadCompatibilityWrapper(
           if (Array.isArray(payloadObj.tools)) {
             payloadObj.tools = payloadObj.tools.map((tool) => stripUnsupportedStrictFlag(tool));
           }
-          delete payloadObj.reasoning;
-          delete payloadObj.reasoningEffort;
-          delete payloadObj.reasoning_effort;
         }
         return originalOnPayload?.(payload, model);
       },
@@ -63,9 +60,7 @@ export function createXaiFastModeWrapper(
 ): StreamFn {
   const underlying = baseStreamFn ?? streamSimple;
   return (model, context, options) => {
-    const supportsFastAliasTransport =
-      model.api === "openai-completions" || model.api === "openai-responses";
-    if (!fastMode || !supportsFastAliasTransport || model.provider !== "xai") {
+    if (!fastMode || model.api !== "openai-completions" || model.provider !== "xai") {
       return underlying(model, context, options);
     }
 

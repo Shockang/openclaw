@@ -411,23 +411,7 @@ _${rootCmd}_root_completion() {
 
 ${generateZshSubcommands(program, rootCmd)}
 
-_${rootCmd}_register_completion() {
-  if (( ! $+functions[compdef] )); then
-    return 0
-  fi
-
-  compdef _${rootCmd}_root_completion ${rootCmd}
-  precmd_functions=(\${precmd_functions:#_${rootCmd}_register_completion})
-  unfunction _${rootCmd}_register_completion 2>/dev/null
-}
-
-_${rootCmd}_register_completion
-if (( ! $+functions[compdef] )); then
-  typeset -ga precmd_functions
-  if [[ -z "\${precmd_functions[(r)_${rootCmd}_register_completion]}" ]]; then
-    precmd_functions+=(_${rootCmd}_register_completion)
-  fi
-fi
+compdef _${rootCmd}_root_completion ${rootCmd}
 `;
   return script;
 }

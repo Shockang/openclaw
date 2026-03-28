@@ -205,7 +205,6 @@ function createModelsProviderDataFromConfig(cfg: OpenClawConfig): {
   byProvider: Map<string, Set<string>>;
   providers: string[];
   resolvedDefault: { provider: string; model: string };
-  modelNames: Map<string, string>;
 } {
   const byProvider = new Map<string, Set<string>>();
   const add = (providerRaw: string | undefined, modelRaw: string | undefined) => {
@@ -228,7 +227,7 @@ function createModelsProviderDataFromConfig(cfg: OpenClawConfig): {
   }
 
   const providers = [...byProvider.keys()].toSorted();
-  return { byProvider, providers, resolvedDefault, modelNames: new Map<string, string>() };
+  return { byProvider, providers, resolvedDefault };
 }
 
 vi.doMock("openclaw/plugin-sdk/command-auth", async (importOriginal) => {

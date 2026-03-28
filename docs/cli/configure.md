@@ -15,11 +15,6 @@ Note: The **Model** section now includes a multi-select for the
 Tip: `openclaw config` without a subcommand opens the same wizard. Use
 `openclaw config get|set|unset` for non-interactive edits.
 
-For web search, `openclaw configure --section web` lets you choose a provider
-and configure its credentials. If you choose **Grok**, configure can also show
-a separate follow-up step to enable `x_search` with the same `XAI_API_KEY` and
-pick an `x_search` model. Other web-search providers do not show that step.
-
 Related:
 
 - Gateway configuration reference: [Configuration](/gateway/configuration)
@@ -37,6 +32,5 @@ Notes:
 
 ```bash
 openclaw configure
-openclaw configure --section web
 openclaw configure --section model --section channels
 ```

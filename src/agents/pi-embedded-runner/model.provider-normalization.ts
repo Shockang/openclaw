@@ -10,14 +10,6 @@ function isOpenAIApiBaseUrl(baseUrl?: string): boolean {
   return /^https?:\/\/api\.openai\.com(?:\/v1)?\/?$/i.test(trimmed);
 }
 
-function isXaiApiBaseUrl(baseUrl?: string): boolean {
-  const trimmed = baseUrl?.trim();
-  if (!trimmed) {
-    return false;
-  }
-  return /^https?:\/\/api\.x\.ai(?:\/v1)?\/?$/i.test(trimmed);
-}
-
 function normalizeOpenAITransport(params: { provider: string; model: Model<Api> }): Model<Api> {
   if (normalizeProviderId(params.provider) !== "openai") {
     return params.model;
@@ -37,33 +29,11 @@ function normalizeOpenAITransport(params: { provider: string; model: Model<Api> 
   } as Model<Api>;
 }
 
-function normalizeXaiTransport(params: { provider: string; model: Model<Api> }): Model<Api> {
-  if (normalizeProviderId(params.provider) !== "xai") {
-    return params.model;
-  }
-
-  const useResponsesTransport =
-    params.model.api === "openai-completions" &&
-    (!params.model.baseUrl || isXaiApiBaseUrl(params.model.baseUrl));
-
-  if (!useResponsesTransport) {
-    return params.model;
-  }
-
-  return {
-    ...params.model,
-    api: "openai-responses",
-  } as Model<Api>;
-}
-
 export function applyBuiltInResolvedProviderTransportNormalization(params: {
   provider: string;
   model: Model<Api>;
 }): Model<Api> {
-  return normalizeXaiTransport({
-    ...params,
-    model: normalizeOpenAITransport(params),
-  });
+  return normalizeOpenAITransport(params);
 }
 
 export function normalizeResolvedProviderModel(params: {

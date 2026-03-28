@@ -72,6 +72,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     setActivityStatus,
     formatSessionKey,
     applySessionInfoFromPatch,
+    noteLocalRunId,
     noteLocalBtwRunId,
     forgetLocalRunId,
     forgetLocalBtwRunId,
@@ -519,7 +520,8 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     try {
       if (!isBtw) {
         chatLog.addUser(text);
-        state.pendingOptimisticUserMessage = true;
+        noteLocalRunId(runId);
+        state.activeChatRunId = runId;
         setActivityStatus("sending");
       } else {
         noteLocalBtwRunId?.(runId);
@@ -545,7 +547,6 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         forgetLocalRunId?.(state.activeChatRunId);
       }
       if (!isBtw) {
-        state.pendingOptimisticUserMessage = false;
         state.activeChatRunId = null;
       }
       chatLog.addSystem(`${isBtw ? "btw failed" : "send failed"}: ${String(err)}`);

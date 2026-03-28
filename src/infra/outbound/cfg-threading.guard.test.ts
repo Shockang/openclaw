@@ -48,7 +48,7 @@ function listExtensionFiles(): {
       continue;
     }
     const source = readFileSync(channelPath, "utf8");
-    if (/\boutbound\s*:\s*\{/.test(source)) {
+    if (source.includes("outbound:")) {
       inlineChannelEntrypoints.push(toPosix(path.join("extensions", entry.name, "src/channel.ts")));
     }
   }

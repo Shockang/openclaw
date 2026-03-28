@@ -7,6 +7,7 @@ import {
   ACPX_BUNDLED_BIN,
   ACPX_PINNED_VERSION,
   createAcpxPluginConfigSchema,
+  resolveDefaultQueueOwnerTtlSeconds,
   resolveAcpxPluginRoot,
   resolveAcpxPluginConfig,
 } from "./config.js";
@@ -72,6 +73,7 @@ describe("acpx plugin config parsing", () => {
     expect(resolved.stripProviderAuthEnvVars).toBe(true);
     expect(resolved.cwd).toBe(path.resolve("/tmp/workspace"));
     expect(resolved.strictWindowsCmdWrapper).toBe(true);
+    expect(resolved.queueOwnerTtlSeconds).toBe(resolveDefaultQueueOwnerTtlSeconds());
   });
 
   it("accepts command override and disables plugin-local auto-install", () => {
@@ -175,6 +177,11 @@ describe("acpx plugin config parsing", () => {
     });
 
     expect(resolved.strictWindowsCmdWrapper).toBe(true);
+  });
+
+  it("uses a higher default queue-owner TTL on Windows", () => {
+    expect(resolveDefaultQueueOwnerTtlSeconds("win32")).toBe(2);
+    expect(resolveDefaultQueueOwnerTtlSeconds("linux")).toBe(0.1);
   });
 
   it("rejects non-boolean strictWindowsCmdWrapper", () => {

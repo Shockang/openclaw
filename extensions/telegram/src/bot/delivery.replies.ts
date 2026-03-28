@@ -92,12 +92,6 @@ function markDelivered(progress: DeliveryProgress): void {
   progress.deliveredCount += 1;
 }
 
-function filterEmptyTelegramTextChunks<T extends { text: string }>(chunks: readonly T[]): T[] {
-  // Telegram rejects whitespace-only text payloads; drop them before sendMessage so
-  // hook-mutated or model-emitted empty replies become a no-op instead of a 400.
-  return chunks.filter((chunk) => chunk.text.trim().length > 0);
-}
-
 async function deliverTextReply(params: {
   bot: Bot;
   chatId: string;
@@ -114,9 +108,8 @@ async function deliverTextReply(params: {
   progress: DeliveryProgress;
 }): Promise<number | undefined> {
   let firstDeliveredMessageId: number | undefined;
-  const chunks = filterEmptyTelegramTextChunks(params.chunkText(params.replyText));
   await sendChunkedTelegramReplyText({
-    chunks,
+    chunks: params.chunkText(params.replyText),
     progress: params.progress,
     replyToId: params.replyToId,
     replyToMode: params.replyToMode,
@@ -162,9 +155,8 @@ async function sendPendingFollowUpText(params: {
   replyToMode: ReplyToMode;
   progress: DeliveryProgress;
 }): Promise<void> {
-  const chunks = filterEmptyTelegramTextChunks(params.chunkText(params.text));
   await sendChunkedTelegramReplyText({
-    chunks,
+    chunks: params.chunkText(params.text),
     progress: params.progress,
     replyToId: params.replyToId,
     replyToMode: params.replyToMode,
@@ -212,7 +204,7 @@ async function sendTelegramVoiceFallbackText(opts: {
   replyQuoteText?: string;
 }): Promise<number | undefined> {
   let firstDeliveredMessageId: number | undefined;
-  const chunks = filterEmptyTelegramTextChunks(opts.chunkText(opts.text));
+  const chunks = opts.chunkText(opts.text);
   let appliedReplyTo = false;
   for (let i = 0; i < chunks.length; i += 1) {
     const chunk = chunks[i];

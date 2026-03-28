@@ -274,11 +274,6 @@ describe("web search runtime", () => {
           selectedProvider: "beta",
           diagnostics: [],
         },
-        xSearch: {
-          active: false,
-          apiKeySource: "missing",
-          diagnostics: [],
-        },
         fetch: {
           firecrawl: {
             active: false,

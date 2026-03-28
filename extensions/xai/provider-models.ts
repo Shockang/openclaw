@@ -29,7 +29,7 @@ export function resolveXaiForwardCompatModel(params: {
     normalizeModelCompat({
       id: definition.id,
       name: definition.name,
-      api: params.ctx.providerConfig?.api ?? "openai-responses",
+      api: params.ctx.providerConfig?.api ?? "openai-completions",
       provider: params.providerId,
       baseUrl: params.ctx.providerConfig?.baseUrl ?? XAI_BASE_URL,
       reasoning: definition.reasoning,

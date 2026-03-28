@@ -28,8 +28,6 @@ export type ModelsProviderData = {
   byProvider: Map<string, Set<string>>;
   providers: string[];
   resolvedDefault: { provider: string; model: string };
-  /** Map from provider/model to human-readable display name (when different from model ID). */
-  modelNames: Map<string, string>;
 };
 
 /**
@@ -121,16 +119,7 @@ export async function buildModelsProviderData(
 
   const providers = [...byProvider.keys()].toSorted();
 
-  // Build a provider-scoped model display-name map so surfaces can show
-  // human-readable names without colliding across providers that share IDs.
-  const modelNames = new Map<string, string>();
-  for (const entry of catalog) {
-    if (entry.name && entry.name !== entry.id) {
-      modelNames.set(`${normalizeProviderId(entry.provider)}/${entry.id}`, entry.name);
-    }
-  }
-
-  return { byProvider, providers, resolvedDefault, modelNames };
+  return { byProvider, providers, resolvedDefault };
 }
 
 function formatProviderLine(params: { provider: string; count: number }): string {
@@ -245,10 +234,7 @@ export async function resolveModelsCommandReply(params: {
   const argText = body.replace(/^\/models\b/i, "").trim();
   const { provider, page, pageSize, all } = parseModelsArgs(argText);
 
-  const { byProvider, providers, modelNames } = await buildModelsProviderData(
-    params.cfg,
-    params.agentId,
-  );
+  const { byProvider, providers } = await buildModelsProviderData(params.cfg, params.agentId);
   const isTelegram = params.surface === "telegram";
 
   // Provider list (no provider specified)
@@ -324,7 +310,6 @@ export async function resolveModelsCommandReply(params: {
       currentPage: safePage,
       totalPages,
       pageSize: telegramPageSize,
-      modelNames,
     });
 
     const text = formatModelsAvailableHeader({

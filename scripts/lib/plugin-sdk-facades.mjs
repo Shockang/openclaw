@@ -516,21 +516,12 @@ export const GENERATED_PLUGIN_SDK_FACADES = [
   {
     subpath: "openrouter",
     source: "../../extensions/openrouter/api.js",
-    exports: [
-      "applyOpenrouterConfig",
-      "applyOpenrouterProviderConfig",
-      "buildOpenrouterProvider",
-      "OPENROUTER_DEFAULT_MODEL_REF",
-    ],
+    exports: ["buildOpenrouterProvider", "OPENROUTER_DEFAULT_MODEL_REF"],
   },
   {
     subpath: "minimax",
     source: "../../extensions/minimax/api.js",
     exports: [
-      "applyMinimaxApiConfig",
-      "applyMinimaxApiConfigCn",
-      "applyMinimaxApiProviderConfig",
-      "applyMinimaxApiProviderConfigCn",
       "buildMinimaxPortalProvider",
       "buildMinimaxProvider",
       "isMiniMaxModernModelId",
@@ -594,15 +585,7 @@ export const GENERATED_PLUGIN_SDK_FACADES = [
   {
     subpath: "mistral",
     source: "../../extensions/mistral/api.js",
-    exports: [
-      "applyMistralConfig",
-      "applyMistralProviderConfig",
-      "buildMistralModelDefinition",
-      "buildMistralProvider",
-      "MISTRAL_BASE_URL",
-      "MISTRAL_DEFAULT_MODEL_ID",
-      "MISTRAL_DEFAULT_MODEL_REF",
-    ],
+    exports: ["buildMistralProvider"],
   },
   {
     subpath: "nvidia",
@@ -732,8 +715,6 @@ export const GENERATED_PLUGIN_SDK_FACADES = [
     subpath: "synthetic",
     source: "../../extensions/synthetic/api.js",
     exports: [
-      "applySyntheticConfig",
-      "applySyntheticProviderConfig",
       "buildSyntheticModelDefinition",
       "buildSyntheticProvider",
       "SYNTHETIC_BASE_URL",
@@ -977,8 +958,6 @@ export const GENERATED_PLUGIN_SDK_FACADES = [
     subpath: "xai",
     source: "../../extensions/xai/api.js",
     exports: [
-      "applyXaiConfig",
-      "applyXaiProviderConfig",
       "applyXaiModelCompat",
       "buildXaiCatalogModels",
       "buildXaiModelDefinition",
@@ -1001,7 +980,6 @@ export const GENERATED_PLUGIN_SDK_FACADES = [
     source: "../../extensions/xiaomi/api.js",
     exports: [
       "applyXiaomiConfig",
-      "applyXiaomiProviderConfig",
       "buildXiaomiProvider",
       "XIAOMI_DEFAULT_MODEL_ID",
       "XIAOMI_DEFAULT_MODEL_REF",

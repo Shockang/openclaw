@@ -6,8 +6,8 @@ function isStorage(value: unknown): value is Storage {
   );
 }
 
-function getSafeStorage(name: "localStorage" | "sessionStorage"): Storage | null {
-  const descriptor = Object.getOwnPropertyDescriptor(globalThis, name);
+export function getSafeLocalStorage(): Storage | null {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
 
   if (typeof process !== "undefined" && process.env?.VITEST) {
     return descriptor && !descriptor.get && isStorage(descriptor.value) ? descriptor.value : null;
@@ -15,20 +15,11 @@ function getSafeStorage(name: "localStorage" | "sessionStorage"): Storage | null
 
   if (typeof window !== "undefined" && typeof document !== "undefined") {
     try {
-      const storage = window[name];
-      return isStorage(storage) ? storage : null;
+      return isStorage(window.localStorage) ? window.localStorage : null;
     } catch {
       return null;
     }
   }
 
   return descriptor && !descriptor.get && isStorage(descriptor.value) ? descriptor.value : null;
-}
-
-export function getSafeLocalStorage(): Storage | null {
-  return getSafeStorage("localStorage");
-}
-
-export function getSafeSessionStorage(): Storage | null {
-  return getSafeStorage("sessionStorage");
 }

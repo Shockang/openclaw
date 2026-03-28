@@ -63,58 +63,57 @@ describe("Zalo reply-once lifecycle", () => {
       },
     );
 
-    const monitor = await startWebhookLifecycleMonitor(createReplyOnceMonitorSetup());
+    const { abort, route, run } = await startWebhookLifecycleMonitor(createReplyOnceMonitorSetup());
 
-    try {
-      await withServer(
-        (req, res) => monitor.route.handler(req, res),
-        async (baseUrl) => {
-          const { first, replay } = await postWebhookReplay({
-            baseUrl,
-            path: "/hooks/zalo",
-            secret: "supersecret",
-            payload: createTextUpdate({
-              messageId: `zalo-replay-${Date.now()}`,
-              userId: "user-1",
-              userName: "User One",
-              chatId: "dm-chat-1",
-            }),
-          });
+    await withServer(
+      (req, res) => route.handler(req, res),
+      async (baseUrl) => {
+        const { first, replay } = await postWebhookReplay({
+          baseUrl,
+          path: "/hooks/zalo",
+          secret: "supersecret",
+          payload: createTextUpdate({
+            messageId: `zalo-replay-${Date.now()}`,
+            userId: "user-1",
+            userName: "User One",
+            chatId: "dm-chat-1",
+          }),
+        });
 
-          expect(first.status).toBe(200);
-          expect(replay.status).toBe(200);
-          await settleAsyncWork();
-        },
-      );
+        expect(first.status).toBe(200);
+        expect(replay.status).toBe(200);
+        await settleAsyncWork();
+      },
+    );
 
-      expect(finalizeInboundContextMock).toHaveBeenCalledTimes(1);
-      expect(finalizeInboundContextMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          AccountId: "acct-zalo-lifecycle",
-          SessionKey: "agent:main:zalo:direct:dm-chat-1",
-          MessageSid: expect.stringContaining("zalo-replay-"),
-          From: "zalo:user-1",
-          To: "zalo:dm-chat-1",
-        }),
-      );
-      expect(recordInboundSessionMock).toHaveBeenCalledTimes(1);
-      expect(recordInboundSessionMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sessionKey: "agent:main:zalo:direct:dm-chat-1",
-        }),
-      );
-      expect(sendMessageMock).toHaveBeenCalledTimes(1);
-      expect(sendMessageMock).toHaveBeenCalledWith(
-        "zalo-token",
-        expect.objectContaining({
-          chat_id: "dm-chat-1",
-          text: "zalo reply once",
-        }),
-        undefined,
-      );
-    } finally {
-      await monitor.stop();
-    }
+    expect(finalizeInboundContextMock).toHaveBeenCalledTimes(1);
+    expect(finalizeInboundContextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        AccountId: "acct-zalo-lifecycle",
+        SessionKey: "agent:main:zalo:direct:dm-chat-1",
+        MessageSid: expect.stringContaining("zalo-replay-"),
+        From: "zalo:user-1",
+        To: "zalo:dm-chat-1",
+      }),
+    );
+    expect(recordInboundSessionMock).toHaveBeenCalledTimes(1);
+    expect(recordInboundSessionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionKey: "agent:main:zalo:direct:dm-chat-1",
+      }),
+    );
+    expect(sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      "zalo-token",
+      expect.objectContaining({
+        chat_id: "dm-chat-1",
+        text: "zalo reply once",
+      }),
+      undefined,
+    );
+
+    abort.abort();
+    await run;
   });
 
   it("does not emit a second visible reply when replay arrives after a post-send failure", async () => {
@@ -129,38 +128,39 @@ describe("Zalo reply-once lifecycle", () => {
       },
     );
 
-    const monitor = await startWebhookLifecycleMonitor(createReplyOnceMonitorSetup());
+    const { abort, route, run, runtime } = await startWebhookLifecycleMonitor(
+      createReplyOnceMonitorSetup(),
+    );
 
-    try {
-      await withServer(
-        (req, res) => monitor.route.handler(req, res),
-        async (baseUrl) => {
-          const { first, replay } = await postWebhookReplay({
-            baseUrl,
-            path: "/hooks/zalo",
-            secret: "supersecret",
-            payload: createTextUpdate({
-              messageId: `zalo-retry-${Date.now()}`,
-              userId: "user-1",
-              userName: "User One",
-              chatId: "dm-chat-1",
-            }),
-            settleBeforeReplay: true,
-          });
+    await withServer(
+      (req, res) => route.handler(req, res),
+      async (baseUrl) => {
+        const { first, replay } = await postWebhookReplay({
+          baseUrl,
+          path: "/hooks/zalo",
+          secret: "supersecret",
+          payload: createTextUpdate({
+            messageId: `zalo-retry-${Date.now()}`,
+            userId: "user-1",
+            userName: "User One",
+            chatId: "dm-chat-1",
+          }),
+          settleBeforeReplay: true,
+        });
 
-          expect(first.status).toBe(200);
-          expect(replay.status).toBe(200);
-          await settleAsyncWork();
-        },
-      );
+        expect(first.status).toBe(200);
+        expect(replay.status).toBe(200);
+        await settleAsyncWork();
+      },
+    );
 
-      expect(dispatchReplyWithBufferedBlockDispatcherMock).toHaveBeenCalledTimes(1);
-      expect(sendMessageMock).toHaveBeenCalledTimes(1);
-      expect(monitor.runtime.error).toHaveBeenCalledWith(
-        expect.stringContaining("Zalo webhook failed: Error: post-send failure"),
-      );
-    } finally {
-      await monitor.stop();
-    }
+    expect(dispatchReplyWithBufferedBlockDispatcherMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageMock).toHaveBeenCalledTimes(1);
+    expect(runtime.error).toHaveBeenCalledWith(
+      expect.stringContaining("Zalo webhook failed: Error: post-send failure"),
+    );
+
+    abort.abort();
+    await run;
   });
 });

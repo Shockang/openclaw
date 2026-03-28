@@ -7,7 +7,6 @@ import {
   pluginRegistrationContractRegistry,
   providerContractLoadError,
   providerContractPluginIds,
-  resolveWebSearchProviderContractEntriesForPluginId,
   speechProviderContractRegistry,
 } from "./registry.js";
 import { uniqueSortedStrings } from "./testkit.js";
@@ -105,16 +104,4 @@ describe("plugin contract registry", () => {
       ),
     ).toEqual(bundledWebSearchPluginIds);
   });
-
-  it(
-    "loads bundled web search providers for each shared-resolver plugin",
-    { timeout: REGISTRY_CONTRACT_TIMEOUT_MS },
-    () => {
-      for (const pluginId of resolveBundledWebSearchPluginIds({})) {
-        expect(resolveWebSearchProviderContractEntriesForPluginId(pluginId).length).toBeGreaterThan(
-          0,
-        );
-      }
-    },
-  );
 });

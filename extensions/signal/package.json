@@ -1,6 +1,6 @@
 {
   "name": "@openclaw/signal",
-  "version": "2026.3.28",
+  "version": "2026.3.27",
   "private": true,
   "description": "OpenClaw Signal channel plugin",
   "type": "module",
@@ -17,8 +17,7 @@
       "docsPath": "/channels/signal",
       "docsLabel": "signal",
       "blurb": "signal-cli linked device; more setup (David Reagans: \"Hop on Discord.\").",
-      "systemImage": "antenna.radiowaves.left.and.right",
-      "markdownCapable": true
+      "systemImage": "antenna.radiowaves.left.and.right"
     }
   }
 }

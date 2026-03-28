@@ -15,7 +15,6 @@ describe("thread binding spawn policy helpers", () => {
   it("allows thread-here on threadless conversation channels without a native thread id", () => {
     expect(requiresNativeThreadContextForThreadHere("telegram")).toBe(false);
     expect(requiresNativeThreadContextForThreadHere("feishu")).toBe(false);
-    expect(requiresNativeThreadContextForThreadHere("line")).toBe(false);
     expect(requiresNativeThreadContextForThreadHere("discord")).toBe(true);
   });
 
@@ -34,11 +33,6 @@ describe("thread binding spawn policy helpers", () => {
     expect(
       resolveThreadBindingPlacementForCurrentContext({
         channel: "telegram",
-      }),
-    ).toBe("current");
-    expect(
-      resolveThreadBindingPlacementForCurrentContext({
-        channel: "line",
       }),
     ).toBe("current");
   });

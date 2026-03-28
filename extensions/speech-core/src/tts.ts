@@ -27,7 +27,6 @@ import {
   canonicalizeSpeechProviderId,
   getSpeechProvider,
   listSpeechProviders,
-  normalizeSpeechProviderId,
   normalizeTtsAutoMode,
   parseTtsDirectives,
   scheduleCleanup,
@@ -57,8 +56,6 @@ export type ResolvedTtsConfig = {
   prefsPath?: string;
   maxTextLength: number;
   timeoutMs: number;
-  rawConfig?: TtsConfig;
-  sourceConfig?: OpenClawConfig;
 };
 
 type TtsUserPrefs = {
@@ -116,31 +113,6 @@ type TtsStatusEntry = {
 
 let lastTtsAttempt: TtsStatusEntry | undefined;
 
-function resolveConfiguredTtsAutoMode(raw: TtsConfig): TtsAutoMode {
-  return normalizeTtsAutoMode(raw.auto) ?? (raw.enabled ? "always" : "off");
-}
-
-function normalizeConfiguredSpeechProviderId(
-  providerId: string | undefined,
-): TtsProvider | undefined {
-  const normalized = normalizeSpeechProviderId(providerId);
-  if (!normalized) {
-    return undefined;
-  }
-  return normalized === "edge" ? "microsoft" : normalized;
-}
-
-function resolveTtsPrefsPathValue(prefsPath: string | undefined): string {
-  if (prefsPath?.trim()) {
-    return resolveUserPath(prefsPath.trim());
-  }
-  const envPath = process.env.OPENCLAW_TTS_PREFS?.trim();
-  if (envPath) {
-    return resolveUserPath(envPath);
-  }
-  return path.join(CONFIG_DIR, "settings", "tts.json");
-}
-
 function resolveModelOverridePolicy(
   overrides: TtsModelOverrideConfig | undefined,
 ): ResolvedTtsModelOverrides {
@@ -197,77 +169,26 @@ function asProviderConfigMap(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function resolveRawProviderConfig(
-  raw: TtsConfig | undefined,
-  providerId: string,
-): SpeechProviderConfig {
-  if (!raw) {
-    return {};
-  }
+function resolveSpeechProviderConfigs(
+  raw: TtsConfig,
+  cfg: OpenClawConfig,
+  timeoutMs: number,
+): Record<string, SpeechProviderConfig> {
+  const providerConfigs: Record<string, SpeechProviderConfig> = {};
   const rawProviders = asProviderConfigMap(raw.providers);
-  const direct = rawProviders[providerId] ?? (raw as Record<string, unknown>)[providerId];
-  return asProviderConfig(direct);
-}
-
-function resolveLazyProviderConfig(
-  config: ResolvedTtsConfig,
-  providerId: string,
-  cfg?: OpenClawConfig,
-): SpeechProviderConfig {
-  const canonical =
-    normalizeConfiguredSpeechProviderId(providerId) ?? providerId.trim().toLowerCase();
-  const existing = config.providerConfigs[canonical];
-  const effectiveCfg = cfg ?? config.sourceConfig;
-  if (existing && !effectiveCfg) {
-    return existing;
+  for (const provider of listSpeechProviders(cfg)) {
+    providerConfigs[provider.id] =
+      provider.resolveConfig?.({
+        cfg,
+        rawConfig: {
+          ...(raw as Record<string, unknown>),
+          providers: rawProviders,
+        },
+        timeoutMs,
+      }) ??
+      asProviderConfig(rawProviders[provider.id] ?? (raw as Record<string, unknown>)[provider.id]);
   }
-  const rawConfig = resolveRawProviderConfig(config.rawConfig, canonical);
-  const resolvedProvider = getSpeechProvider(canonical, effectiveCfg);
-  const next =
-    effectiveCfg && resolvedProvider?.resolveConfig
-      ? resolvedProvider.resolveConfig({
-          cfg: effectiveCfg,
-          rawConfig: {
-            ...(config.rawConfig as Record<string, unknown> | undefined),
-            providers: asProviderConfigMap(config.rawConfig?.providers),
-          },
-          timeoutMs: config.timeoutMs,
-        })
-      : rawConfig;
-  config.providerConfigs[canonical] = next;
-  return next;
-}
-
-function collectDirectProviderConfigEntries(raw: TtsConfig): Record<string, SpeechProviderConfig> {
-  const entries: Record<string, SpeechProviderConfig> = {};
-  const rawProviders = asProviderConfigMap(raw.providers);
-  for (const [providerId, value] of Object.entries(rawProviders)) {
-    const normalized = normalizeConfiguredSpeechProviderId(providerId) ?? providerId;
-    entries[normalized] = asProviderConfig(value);
-  }
-  const reservedKeys = new Set([
-    "auto",
-    "enabled",
-    "maxTextLength",
-    "mode",
-    "modelOverrides",
-    "prefsPath",
-    "provider",
-    "providers",
-    "summaryModel",
-    "timeoutMs",
-  ]);
-  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (reservedKeys.has(key)) {
-      continue;
-    }
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-      continue;
-    }
-    const normalized = normalizeConfiguredSpeechProviderId(key) ?? key;
-    entries[normalized] ??= asProviderConfig(value);
-  }
-  return entries;
+  return providerConfigs;
 }
 
 export function getResolvedSpeechProviderConfig(
@@ -276,37 +197,40 @@ export function getResolvedSpeechProviderConfig(
   cfg?: OpenClawConfig,
 ): SpeechProviderConfig {
   const canonical =
-    canonicalizeSpeechProviderId(providerId, cfg) ??
-    normalizeConfiguredSpeechProviderId(providerId) ??
-    providerId.trim().toLowerCase();
-  return resolveLazyProviderConfig(config, canonical, cfg);
+    canonicalizeSpeechProviderId(providerId, cfg) ?? providerId.trim().toLowerCase();
+  return config.providerConfigs[canonical] ?? {};
 }
 
 export function resolveTtsConfig(cfg: OpenClawConfig): ResolvedTtsConfig {
   const raw: TtsConfig = cfg.messages?.tts ?? {};
   const providerSource = raw.provider ? "config" : "default";
   const timeoutMs = raw.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const auto = resolveConfiguredTtsAutoMode(raw);
+  const auto = normalizeTtsAutoMode(raw.auto) ?? (raw.enabled ? "always" : "off");
   return {
     auto,
     mode: raw.mode ?? "final",
     provider:
-      normalizeConfiguredSpeechProviderId(raw.provider) ??
-      (providerSource === "config" ? raw.provider?.trim().toLowerCase() || "" : ""),
+      canonicalizeSpeechProviderId(raw.provider, cfg) ??
+      resolveRegistryDefaultSpeechProviderId(cfg),
     providerSource,
     summaryModel: raw.summaryModel?.trim() || undefined,
     modelOverrides: resolveModelOverridePolicy(raw.modelOverrides),
-    providerConfigs: collectDirectProviderConfigEntries(raw),
+    providerConfigs: resolveSpeechProviderConfigs(raw, cfg, timeoutMs),
     prefsPath: raw.prefsPath,
     maxTextLength: raw.maxTextLength ?? DEFAULT_MAX_TEXT_LENGTH,
     timeoutMs,
-    rawConfig: raw,
-    sourceConfig: cfg,
   };
 }
 
 export function resolveTtsPrefsPath(config: ResolvedTtsConfig): string {
-  return resolveTtsPrefsPathValue(config.prefsPath);
+  if (config.prefsPath?.trim()) {
+    return resolveUserPath(config.prefsPath.trim());
+  }
+  const envPath = process.env.OPENCLAW_TTS_PREFS?.trim();
+  if (envPath) {
+    return resolveUserPath(envPath);
+  }
+  return path.join(CONFIG_DIR, "settings", "tts.json");
 }
 
 function resolveTtsAutoModeFromPrefs(prefs: TtsUserPrefs): TtsAutoMode | undefined {
@@ -336,32 +260,13 @@ export function resolveTtsAutoMode(params: {
   return params.config.auto;
 }
 
-function resolveEffectiveTtsAutoState(params: { cfg: OpenClawConfig; sessionAuto?: string }): {
-  autoMode: TtsAutoMode;
-  prefsPath: string;
-} {
-  const raw: TtsConfig = params.cfg.messages?.tts ?? {};
-  const prefsPath = resolveTtsPrefsPathValue(raw.prefsPath);
-  const sessionAuto = normalizeTtsAutoMode(params.sessionAuto);
-  if (sessionAuto) {
-    return { autoMode: sessionAuto, prefsPath };
-  }
-  const prefsAuto = resolveTtsAutoModeFromPrefs(readPrefs(prefsPath));
-  if (prefsAuto) {
-    return { autoMode: prefsAuto, prefsPath };
-  }
-  return {
-    autoMode: resolveConfiguredTtsAutoMode(raw),
-    prefsPath,
-  };
-}
-
 export function buildTtsSystemPromptHint(cfg: OpenClawConfig): string | undefined {
-  const { autoMode, prefsPath } = resolveEffectiveTtsAutoState({ cfg });
+  const config = resolveTtsConfig(cfg);
+  const prefsPath = resolveTtsPrefsPath(config);
+  const autoMode = resolveTtsAutoMode({ config, prefsPath });
   if (autoMode === "off") {
     return undefined;
   }
-  const config = resolveTtsConfig(cfg);
   const maxLength = getTtsMaxLength(prefsPath);
   const summarize = isSummarizationEnabled(prefsPath) ? "on" : "off";
   const autoHint =
@@ -436,14 +341,12 @@ export function setTtsEnabled(prefsPath: string, enabled: boolean): void {
 
 export function getTtsProvider(config: ResolvedTtsConfig, prefsPath: string): TtsProvider {
   const prefs = readPrefs(prefsPath);
-  const prefsProvider =
-    canonicalizeSpeechProviderId(prefs.tts?.provider) ??
-    normalizeConfiguredSpeechProviderId(prefs.tts?.provider);
+  const prefsProvider = canonicalizeSpeechProviderId(prefs.tts?.provider);
   if (prefsProvider) {
     return prefsProvider;
   }
   if (config.providerSource === "config") {
-    return normalizeConfiguredSpeechProviderId(config.provider) ?? config.provider;
+    return canonicalizeSpeechProviderId(config.provider) ?? config.provider;
   }
 
   for (const provider of sortSpeechProvidersForAutoSelection()) {
@@ -797,14 +700,16 @@ export async function maybeApplyTtsToPayload(params: {
   if (params.payload.isCompactionNotice) {
     return params.payload;
   }
-  const { autoMode, prefsPath } = resolveEffectiveTtsAutoState({
-    cfg: params.cfg,
+  const config = resolveTtsConfig(params.cfg);
+  const prefsPath = resolveTtsPrefsPath(config);
+  const autoMode = resolveTtsAutoMode({
+    config,
+    prefsPath,
     sessionAuto: params.ttsAuto,
   });
   if (autoMode === "off") {
     return params.payload;
   }
-  const config = resolveTtsConfig(params.cfg);
 
   const reply = resolveSendableOutboundReplyParts(params.payload);
   const text = reply.text;

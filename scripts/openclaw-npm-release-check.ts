@@ -418,25 +418,23 @@ function collectPackedTarballErrors(): string[] {
   const errors: string[] = [];
   let stdout = "";
   try {
-    stdout = runNpmCommand(["pack", "--json", "--dry-run", "--ignore-scripts"]);
+    stdout = runNpmCommand(["pack", "--json", "--dry-run"]);
   } catch (error) {
     const message = describeExecFailure(error);
     errors.push(
-      `Failed to inspect npm tarball contents via \`npm pack --json --dry-run --ignore-scripts\`: ${message}`,
+      `Failed to inspect npm tarball contents via \`npm pack --json --dry-run\`: ${message}`,
     );
     return errors;
   }
 
   const packResults = parseNpmPackJsonOutput(stdout);
   if (!packResults) {
-    errors.push("Failed to parse JSON output from `npm pack --json --dry-run --ignore-scripts`.");
+    errors.push("Failed to parse JSON output from `npm pack --json --dry-run`.");
     return errors;
   }
   const firstResult = packResults[0];
   if (!firstResult || !Array.isArray(firstResult.files)) {
-    errors.push(
-      "`npm pack --json --dry-run --ignore-scripts` did not return a files list to validate.",
-    );
+    errors.push("`npm pack --json --dry-run` did not return a files list to validate.");
     return errors;
   }
 

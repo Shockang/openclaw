@@ -1,5 +1,4 @@
 import { describeAccountSnapshot } from "openclaw/plugin-sdk/account-helpers";
-import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/account-id";
 import {
   adaptScopedAccountAccessor,
   createScopedChannelConfigAdapter,
@@ -13,13 +12,8 @@ import {
   createAllowlistProviderOpenWarningCollector,
   projectAccountConfigWarningCollector,
 } from "openclaw/plugin-sdk/channel-policy";
-import { PAIRING_APPROVED_MESSAGE } from "openclaw/plugin-sdk/channel-status";
 import { createScopedAccountReplyToModeResolver } from "openclaw/plugin-sdk/conversation-runtime";
-import {
-  buildChannelConfigSchema,
-  createChatChannelPlugin,
-  type ChannelPlugin,
-} from "openclaw/plugin-sdk/core";
+import { createChatChannelPlugin } from "openclaw/plugin-sdk/core";
 import {
   createChannelDirectoryAdapter,
   createResolvedDirectoryEntriesLister,
@@ -29,8 +23,6 @@ import { buildTrafficStatusSummary } from "openclaw/plugin-sdk/extension-shared"
 import { createLazyRuntimeNamedExport } from "openclaw/plugin-sdk/lazy-runtime";
 import { createRuntimeOutboundDelegates } from "openclaw/plugin-sdk/outbound-runtime";
 import {
-  buildProbeChannelStatusSummary,
-  collectStatusIssuesFromLastError,
   createComputedAccountStatusAdapter,
   createDefaultChannelRuntimeState,
 } from "openclaw/plugin-sdk/status-helpers";
@@ -54,6 +46,15 @@ import {
   resolveMatrixDirectUserId,
   resolveMatrixTargetIdentity,
 } from "./matrix/target-ids.js";
+import {
+  buildChannelConfigSchema,
+  buildProbeChannelStatusSummary,
+  chunkTextForOutbound,
+  collectStatusIssuesFromLastError,
+  DEFAULT_ACCOUNT_ID,
+  PAIRING_APPROVED_MESSAGE,
+  type ChannelPlugin,
+} from "./runtime-api.js";
 import { getMatrixRuntime } from "./runtime.js";
 import { resolveMatrixOutboundSessionRoute } from "./session-route.js";
 import { matrixSetupAdapter } from "./setup-core.js";
@@ -61,22 +62,6 @@ import type { CoreConfig } from "./types.js";
 
 // Mutex for serializing account startup (workaround for concurrent dynamic import race condition)
 let matrixStartupLock: Promise<void> = Promise.resolve();
-
-function chunkTextForOutbound(text: string, limit: number): string[] {
-  const chunks: string[] = [];
-  let remaining = text;
-  while (remaining.length > limit) {
-    const window = remaining.slice(0, limit);
-    const splitAt = Math.max(window.lastIndexOf("\n"), window.lastIndexOf(" "));
-    const breakAt = splitAt > 0 ? splitAt : limit;
-    chunks.push(remaining.slice(0, breakAt).trimEnd());
-    remaining = remaining.slice(breakAt).trimStart();
-  }
-  if (remaining.length > 0 || text.length === 0) {
-    chunks.push(remaining);
-  }
-  return chunks;
-}
 
 const loadMatrixChannelRuntime = createLazyRuntimeNamedExport(
   () => import("./channel.runtime.js"),

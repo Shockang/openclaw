@@ -3,7 +3,7 @@ import {
   buildSyntheticModelDefinition,
   SYNTHETIC_BASE_URL,
   SYNTHETIC_MODEL_CATALOG,
-} from "./models.js";
+} from "./api.js";
 
 export function buildSyntheticProvider(): ModelProviderConfig {
   return {

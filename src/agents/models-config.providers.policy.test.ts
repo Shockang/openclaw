@@ -1,7 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("models-config.providers.policy", () => {
-  it("resolves config apiKey markers through the local bedrock helper", async () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("resolves config apiKey markers through provider runtime hooks", async () => {
+    const providerRuntime = await import("../plugins/provider-runtime.js");
+    vi.spyOn(providerRuntime, "resolveProviderRuntimePlugin").mockReturnValue({
+      id: "amazon-bedrock",
+      label: "Amazon Bedrock",
+      auth: [],
+      resolveConfigApiKey: () => "AWS_PROFILE",
+    });
+    const resolveProviderConfigApiKeyWithPluginSpy = vi
+      .spyOn(providerRuntime, "resolveProviderConfigApiKeyWithPlugin")
+      .mockReturnValue("AWS_PROFILE");
+
     const { resolveProviderConfigApiKeyResolver } =
       await import("./models-config.providers.policy.js");
     const env = {
@@ -11,5 +27,13 @@ describe("models-config.providers.policy", () => {
 
     expect(resolver).toBeTypeOf("function");
     expect(resolver?.(env)).toBe("AWS_PROFILE");
+    expect(resolveProviderConfigApiKeyWithPluginSpy).toHaveBeenCalledWith({
+      provider: "amazon-bedrock",
+      env,
+      context: {
+        provider: "amazon-bedrock",
+        env,
+      },
+    });
   });
 });

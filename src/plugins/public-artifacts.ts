@@ -46,7 +46,6 @@ const EXTRA_GUARDED_EXTENSION_PUBLIC_SURFACE_BASENAMES = assertUniqueValues(
     "setup-api.js",
     "setup-entry.js",
     "timeouts.js",
-    "x-search.js",
   ] as const,
   "extra guarded extension public surface basename",
 );

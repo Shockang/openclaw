@@ -25,7 +25,6 @@ const COMMAND_SECRET_TARGETS = {
     "messages.tts.",
     "tools.web.search",
     "tools.web.fetch.firecrawl.",
-    "tools.web.x_search",
   ]),
   status: idsByPrefix([
     "channels.",

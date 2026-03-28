@@ -1,12 +1,9 @@
 import {
-  createDedupeCache,
   formatInboundFromLabel as formatInboundFromLabelShared,
-  rawDataToString,
   resolveThreadSessionKeys as resolveThreadSessionKeysShared,
   type OpenClawConfig,
-} from "./runtime-api.js";
-
-export { createDedupeCache, rawDataToString };
+} from "../runtime-api.js";
+export { createDedupeCache, rawDataToString } from "../runtime-api.js";
 
 export type ResponsePrefixContext = {
   model?: string;

@@ -20,10 +20,6 @@ import {
 const PROVIDER_ID = "ollama";
 const DEFAULT_API_KEY = "ollama-local";
 
-function shouldSkipAmbientOllamaDiscovery(env: NodeJS.ProcessEnv): boolean {
-  return Boolean(env.VITEST) || env.NODE_ENV === "test";
-}
-
 async function loadProviderSetup() {
   return await import("openclaw/plugin-sdk/provider-setup");
 }
@@ -98,9 +94,6 @@ export default definePluginEntry({
                 apiKey: ollamaKey ?? explicit.apiKey ?? DEFAULT_API_KEY,
               },
             };
-          }
-          if (!ollamaKey && !explicit && shouldSkipAmbientOllamaDiscovery(ctx.env)) {
-            return null;
           }
 
           const providerSetup = await loadProviderSetup();

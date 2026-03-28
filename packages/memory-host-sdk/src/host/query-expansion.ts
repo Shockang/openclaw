@@ -670,8 +670,7 @@ function isValidKeyword(token: string): boolean {
  * For Chinese, we do character-based splitting since we don't have a proper segmenter.
  * For English, we split on whitespace and punctuation.
  */
-function tokenize(text: string, opts?: { ftsTokenizer?: "unicode61" | "trigram" }): string[] {
-  const useTrigram = opts?.ftsTokenizer === "trigram";
+function tokenize(text: string): string[] {
   const tokens: string[] = [];
   const normalized = text.toLowerCase().trim();
 
@@ -687,10 +686,8 @@ function tokenize(text: string, opts?: { ftsTokenizer?: "unicode61" | "trigram" 
       for (const part of jpParts) {
         if (/^[\u4e00-\u9fff]+$/.test(part)) {
           tokens.push(part);
-          if (!useTrigram) {
-            for (let i = 0; i < part.length - 1; i++) {
-              tokens.push(part[i] + part[i + 1]);
-            }
+          for (let i = 0; i < part.length - 1; i++) {
+            tokens.push(part[i] + part[i + 1]);
           }
         } else {
           tokens.push(part);
@@ -698,21 +695,13 @@ function tokenize(text: string, opts?: { ftsTokenizer?: "unicode61" | "trigram" 
       }
     } else if (/[\u4e00-\u9fff]/.test(segment)) {
       // Check if segment contains CJK characters (Chinese)
+      // For Chinese, extract character n-grams (unigrams and bigrams)
       const chars = Array.from(segment).filter((c) => /[\u4e00-\u9fff]/.test(c));
-      if (useTrigram) {
-        // In trigram mode, push the whole contiguous CJK block (mirroring the
-        // Japanese kanji path). SQLite's trigram FTS requires at least 3 characters
-        // per query term — individual characters silently return no results.
-        const block = chars.join("");
-        if (block.length > 0) {
-          tokens.push(block);
-        }
-      } else {
-        // Default mode: unigrams + bigrams for phrase matching
-        tokens.push(...chars);
-        for (let i = 0; i < chars.length - 1; i++) {
-          tokens.push(chars[i] + chars[i + 1]);
-        }
+      // Add individual characters
+      tokens.push(...chars);
+      // Add bigrams for better phrase matching
+      for (let i = 0; i < chars.length - 1; i++) {
+        tokens.push(chars[i] + chars[i + 1]);
       }
     } else if (/[\uac00-\ud7af\u3131-\u3163]/.test(segment)) {
       // For Korean (Hangul syllables and jamo), keep the word as-is unless it is
@@ -743,11 +732,8 @@ function tokenize(text: string, opts?: { ftsTokenizer?: "unicode61" | "trigram" 
  * - "之前讨论的那个方案" → ["讨论", "方案"]
  * - "what was the solution for the bug" → ["solution", "bug"]
  */
-export function extractKeywords(
-  query: string,
-  opts?: { ftsTokenizer?: "unicode61" | "trigram" },
-): string[] {
-  const tokens = tokenize(query, opts);
+export function extractKeywords(query: string): string[] {
+  const tokens = tokenize(query);
   const keywords: string[] = [];
   const seen = new Set<string>();
 
@@ -778,16 +764,13 @@ export function extractKeywords(
  * @param query - User's original query
  * @returns Object with original query and extracted keywords
  */
-export function expandQueryForFts(
-  query: string,
-  opts?: { ftsTokenizer?: "unicode61" | "trigram" },
-): {
+export function expandQueryForFts(query: string): {
   original: string;
   keywords: string[];
   expanded: string;
 } {
   const original = query.trim();
-  const keywords = extractKeywords(original, opts);
+  const keywords = extractKeywords(original);
 
   // Build expanded query: original terms OR extracted keywords
   // This ensures both exact matches and keyword matches are found
@@ -809,7 +792,6 @@ export type LlmQueryExpander = (query: string) => Promise<string[]>;
 export async function expandQueryWithLlm(
   query: string,
   llmExpander?: LlmQueryExpander,
-  opts?: { ftsTokenizer?: "unicode61" | "trigram" },
 ): Promise<string[]> {
   // If LLM expander is provided, try it first
   if (llmExpander) {
@@ -824,5 +806,5 @@ export async function expandQueryWithLlm(
   }
 
   // Fall back to local keyword extraction
-  return extractKeywords(query, opts);
+  return extractKeywords(query);
 }

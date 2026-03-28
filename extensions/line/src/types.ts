@@ -11,14 +11,6 @@ import type { BaseProbeResult } from "openclaw/plugin-sdk/channel-contract";
 
 export type LineTokenSource = "config" | "env" | "file" | "none";
 
-export interface LineThreadBindingsConfig {
-  enabled?: boolean;
-  idleHours?: number;
-  maxAgeHours?: number;
-  spawnSubagentSessions?: boolean;
-  spawnAcpSessions?: boolean;
-}
-
 interface LineAccountBaseConfig {
   enabled?: boolean;
   channelAccessToken?: string;
@@ -33,7 +25,6 @@ interface LineAccountBaseConfig {
   responsePrefix?: string;
   mediaMaxMb?: number;
   webhookPath?: string;
-  threadBindings?: LineThreadBindingsConfig;
   groups?: Record<string, LineGroupConfig>;
 }
 

@@ -170,7 +170,7 @@ describe("deliverReplies", () => {
     messageHookRunner.hasHooks.mockImplementation(
       (name: string) => name === "message_sending" || name === "message_sent",
     );
-    messageHookRunner.runMessageSending.mockResolvedValue({ content: "   " });
+    messageHookRunner.runMessageSending.mockResolvedValue({ content: "" });
 
     const runtime = createRuntime(false);
     const sendMessage = vi.fn();
@@ -184,7 +184,7 @@ describe("deliverReplies", () => {
 
     expect(sendMessage).not.toHaveBeenCalled();
     expect(messageHookRunner.runMessageSent).toHaveBeenCalledWith(
-      expect.objectContaining({ success: false, content: "   " }),
+      expect.objectContaining({ success: false, content: "" }),
       expect.objectContaining({ channelId: "telegram", conversationId: "123" }),
     );
   });
@@ -600,7 +600,7 @@ describe("deliverReplies", () => {
     );
   });
 
-  it("skips whitespace-only text replies without calling Telegram", async () => {
+  it("throws when formatted and plain fallback text are both empty", async () => {
     const runtime = createRuntime();
     const sendMessage = vi.fn();
     const bot = { api: { sendMessage } } as unknown as Bot;
@@ -615,7 +615,7 @@ describe("deliverReplies", () => {
         replyToMode: "off",
         textLimit: 4000,
       }),
-    ).resolves.toEqual({ delivered: false });
+    ).rejects.toThrow("empty formatted text and empty plain fallback");
     expect(sendMessage).not.toHaveBeenCalled();
   });
 

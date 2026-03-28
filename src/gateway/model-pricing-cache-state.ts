@@ -1,4 +1,3 @@
-import { normalizeModelRef } from "../agents/model-selection.js";
 import { normalizeProviderId } from "../agents/provider-id.js";
 
 export type CachedModelPricing = {
@@ -11,13 +10,6 @@ export type CachedModelPricing = {
 let cachedPricing = new Map<string, CachedModelPricing>();
 let cachedAt = 0;
 
-const WRAPPER_PROVIDERS = new Set([
-  "cloudflare-ai-gateway",
-  "kilocode",
-  "openrouter",
-  "vercel-ai-gateway",
-]);
-
 function modelPricingCacheKey(provider: string, model: string): string {
   const providerId = normalizeProviderId(provider);
   const modelId = model.trim();
@@ -27,16 +19,6 @@ function modelPricingCacheKey(provider: string, model: string): string {
   return modelId.toLowerCase().startsWith(`${providerId.toLowerCase()}/`)
     ? modelId
     : `${providerId}/${modelId}`;
-}
-
-function shouldNormalizeCachedPricingLookup(provider: string): boolean {
-  const normalized = normalizeProviderId(provider);
-  return (
-    normalized === "anthropic" ||
-    normalized === "openrouter" ||
-    normalized === "xai" ||
-    WRAPPER_PROVIDERS.has(normalized)
-  );
 }
 
 export function replaceGatewayModelPricingCache(
@@ -62,16 +44,7 @@ export function getCachedGatewayModelPricing(params: {
     return undefined;
   }
   const key = modelPricingCacheKey(provider, model);
-  const direct = key ? cachedPricing.get(key) : undefined;
-  if (direct) {
-    return direct;
-  }
-  if (!shouldNormalizeCachedPricingLookup(provider)) {
-    return undefined;
-  }
-  const normalized = normalizeModelRef(provider, model);
-  const normalizedKey = modelPricingCacheKey(normalized.provider, normalized.model);
-  return normalizedKey ? cachedPricing.get(normalizedKey) : undefined;
+  return key ? cachedPricing.get(key) : undefined;
 }
 
 export function getGatewayModelPricingCacheMeta(): {
@@ -96,10 +69,7 @@ export function __setGatewayModelPricingForTest(
   replaceGatewayModelPricingCache(
     new Map(
       entries.flatMap((entry) => {
-        const normalized = normalizeModelRef(entry.provider, entry.model, {
-          allowPluginNormalization: false,
-        });
-        const key = modelPricingCacheKey(normalized.provider, normalized.model);
+        const key = modelPricingCacheKey(entry.provider, entry.model);
         return key ? ([[key, entry.pricing]] as const) : [];
       }),
     ),

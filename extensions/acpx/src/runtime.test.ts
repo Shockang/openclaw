@@ -2,6 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { runAcpRuntimeAdapterContract } from "../../../src/acp/runtime/adapter-contract.testkit.js";
+import { resolveDefaultQueueOwnerTtlSeconds } from "./config.js";
 import { AcpxRuntime, decodeAcpxRuntimeHandleState } from "./runtime.js";
 import {
   cleanupMockRuntimeFixtures,
@@ -378,7 +379,7 @@ describe("AcpxRuntime", () => {
     const promptArgs = (prompt?.args as string[]) ?? [];
     const ttlFlagIndex = promptArgs.indexOf("--ttl");
     expect(ttlFlagIndex).toBeGreaterThanOrEqual(0);
-    expect(promptArgs[ttlFlagIndex + 1]).toBe("0.1");
+    expect(promptArgs[ttlFlagIndex + 1]).toBe(String(resolveDefaultQueueOwnerTtlSeconds()));
   });
 
   it("emits done once when ACP stream repeats stop reason responses", async () => {

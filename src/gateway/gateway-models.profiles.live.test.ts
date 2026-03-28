@@ -67,10 +67,6 @@ const GATEWAY_LIVE_STRIP_SCAFFOLDING_MODEL_KEYS = new Set([
   "google/gemini-3.1-flash-lite-preview",
   "google/gemini-3.1-pro-preview",
   "google/gemini-3.1-pro-preview-customtools",
-  "openai/gpt-5.2-pro",
-]);
-const GATEWAY_LIVE_EXEC_READ_NONCE_MISS_SKIP_MODEL_KEYS = new Set([
-  "google/gemini-3.1-flash-lite-preview",
 ]);
 const GATEWAY_LIVE_MAX_MODELS = resolveGatewayLiveMaxModels();
 const GATEWAY_LIVE_SUITE_TIMEOUT_MS = resolveGatewayLiveSuiteTimeoutMs(GATEWAY_LIVE_MAX_MODELS);
@@ -311,21 +307,6 @@ function maybeStripAssistantScaffoldingForLiveModel(text: string, modelKey?: str
   return stripAssistantInternalScaffolding(text).trim();
 }
 
-function shouldSkipExecReadNonceMissForLiveModel(modelKey?: string): boolean {
-  if (!modelKey) {
-    return false;
-  }
-  if (GATEWAY_LIVE_EXEC_READ_NONCE_MISS_SKIP_MODEL_KEYS.has(modelKey)) {
-    return true;
-  }
-  const [provider, ...rest] = modelKey.split("/");
-  if (provider !== "google" || rest.length === 0) {
-    return false;
-  }
-  const normalizedKey = `${provider}/${normalizeGoogleModelId(rest.join("/"))}`;
-  return GATEWAY_LIVE_EXEC_READ_NONCE_MISS_SKIP_MODEL_KEYS.has(normalizedKey);
-}
-
 describe("maybeStripAssistantScaffoldingForLiveModel", () => {
   it("strips scaffolding for Gemini preview models with known transcript wrappers", () => {
     expect(
@@ -360,15 +341,6 @@ describe("maybeStripAssistantScaffoldingForLiveModel", () => {
     ).toBe("<think>hidden</think>Visible");
   });
 
-  it("strips scaffolding for known OpenAI transcript wrappers", () => {
-    expect(
-      maybeStripAssistantScaffoldingForLiveModel("<final>Visible</final>", "openai/gpt-5.2-pro"),
-    ).toBe("Visible");
-    expect(
-      maybeStripAssistantScaffoldingForLiveModel("<final>Visible</final>", "openai/gpt-5.2"),
-    ).toBe("<final>Visible</final>");
-  });
-
   it("strips scaffolding for MiniMax transcript wrappers", () => {
     expect(
       maybeStripAssistantScaffoldingForLiveModel(
@@ -385,16 +357,6 @@ describe("maybeStripAssistantScaffoldingForLiveModel", () => {
     expect(
       maybeStripAssistantScaffoldingForLiveModel("<final>Visible</final>", "minimax/MiniMax-M2.7"),
     ).toBe("Visible");
-  });
-});
-
-describe("shouldSkipExecReadNonceMissForLiveModel", () => {
-  it("matches the known Gemini lite exec/read isolation case", () => {
-    expect(shouldSkipExecReadNonceMissForLiveModel("google/gemini-3.1-flash-lite-preview")).toBe(
-      true,
-    );
-    expect(shouldSkipExecReadNonceMissForLiveModel("google/gemini-3.1-flash-lite")).toBe(true);
-    expect(shouldSkipExecReadNonceMissForLiveModel("google/gemini-3.1-flash-preview")).toBe(false);
   });
 });
 
@@ -472,49 +434,6 @@ function isToolNonceProbeMiss(error: string): boolean {
   return msg.includes("tool probe missing nonce") || msg.includes("exec+read probe missing nonce");
 }
 
-function isExecReadNonceProbeMiss(error: string): boolean {
-  return error.toLowerCase().includes("exec+read probe missing nonce");
-}
-
-function isPromptProbeMiss(error: string): boolean {
-  const msg = error.toLowerCase();
-  return msg.includes("not meaningful:") || msg.includes("missing required keywords:");
-}
-
-function shouldSkipToolNonceProbeMiss(provider: string): boolean {
-  return (
-    provider === "anthropic" ||
-    provider === "minimax" ||
-    provider === "opencode" ||
-    provider === "opencode-go" ||
-    provider === "xai" ||
-    provider === "zai"
-  );
-}
-
-describe("shouldSkipToolNonceProbeMiss", () => {
-  it.each([
-    { provider: "anthropic", expected: true },
-    { provider: "minimax", expected: true },
-    { provider: "opencode", expected: true },
-    { provider: "opencode-go", expected: true },
-    { provider: "xai", expected: true },
-    { provider: "zai", expected: true },
-    { provider: "openai", expected: false },
-  ])("returns $expected for $provider", ({ provider, expected }) => {
-    expect(shouldSkipToolNonceProbeMiss(provider)).toBe(expected);
-  });
-});
-
-describe("isPromptProbeMiss", () => {
-  it.each([
-    { error: "not meaningful: let me think", expected: true },
-    { error: "missing required keywords: event loop summary", expected: true },
-    { error: "tool probe missing nonce: nonce-a", expected: false },
-  ])("returns $expected for $error", ({ error, expected }) => {
-    expect(isPromptProbeMiss(error)).toBe(expected);
-  });
-});
 function isMissingProfileError(error: string): boolean {
   return /no credentials found for profile/i.test(error);
 }
@@ -1486,11 +1405,6 @@ async function runGatewayModelSuite(params: GatewayModelSuiteParams) {
             logProgress(`${progressLabel}: skip (provider unavailable)`);
             break;
           }
-          if (model.provider === "openrouter" && isPromptProbeMiss(message)) {
-            skippedCount += 1;
-            logProgress(`${progressLabel}: skip (openrouter prompt probe miss)`);
-            break;
-          }
           if (params.allowNotFoundSkip && isModelNotFoundErrorMessage(message)) {
             skippedCount += 1;
             logProgress(`${progressLabel}: skip (model not found)`);
@@ -1540,14 +1454,11 @@ async function runGatewayModelSuite(params: GatewayModelSuiteParams) {
             break;
           }
           if (
-            isExecReadNonceProbeMiss(message) &&
-            shouldSkipExecReadNonceMissForLiveModel(modelKey)
+            (model.provider === "anthropic" ||
+              model.provider === "minimax" ||
+              model.provider === "opencode-go") &&
+            isToolNonceProbeMiss(message)
           ) {
-            skippedCount += 1;
-            logProgress(`${progressLabel}: skip (exec/read workspace isolation)`);
-            break;
-          }
-          if (shouldSkipToolNonceProbeMiss(model.provider) && isToolNonceProbeMiss(message)) {
             skippedCount += 1;
             logProgress(`${progressLabel}: skip (${model.provider} tool probe nonce miss)`);
             break;

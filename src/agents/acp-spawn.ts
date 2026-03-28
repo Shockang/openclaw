@@ -18,7 +18,6 @@ import {
 import {
   formatThreadBindingDisabledError,
   formatThreadBindingSpawnDisabledError,
-  requiresNativeThreadContextForThreadHere,
   resolveThreadBindingIdleTimeoutMsForChannel,
   resolveThreadBindingMaxAgeMsForChannel,
   resolveThreadBindingSpawnPolicy,
@@ -126,7 +125,6 @@ export function resolveAcpSpawnRuntimePolicyError(params: {
 type PreparedAcpThreadBinding = {
   channel: string;
   accountId: string;
-  placement: "current" | "child";
   conversationId: string;
 };
 
@@ -354,31 +352,13 @@ async function persistAcpSpawnSessionFileBestEffort(params: {
 }
 
 function resolveConversationIdForThreadBinding(params: {
-  channel?: string;
   to?: string;
   threadId?: string | number;
 }): string | undefined {
-  const genericConversationId = resolveConversationIdFromTargets({
+  return resolveConversationIdFromTargets({
     threadId: params.threadId,
     targets: [params.to],
   });
-  if (genericConversationId) {
-    return genericConversationId;
-  }
-
-  const channel = params.channel?.trim().toLowerCase();
-  const target = params.to?.trim() || "";
-  if (channel === "line") {
-    const prefixed = target.match(/^line:(?:(?:user|group|room):)?([UCR][a-f0-9]{32})$/i)?.[1];
-    if (prefixed) {
-      return prefixed;
-    }
-    if (/^[UCR][a-f0-9]{32}$/i.test(target)) {
-      return target;
-    }
-  }
-
-  return undefined;
 }
 
 function prepareAcpThreadBinding(params: {
@@ -434,15 +414,13 @@ function prepareAcpThreadBinding(params: {
       error: `Thread bindings are unavailable for ${policy.channel}.`,
     };
   }
-  const placement = requiresNativeThreadContextForThreadHere(policy.channel) ? "child" : "current";
-  if (!capabilities.bindSupported || !capabilities.placements.includes(placement)) {
+  if (!capabilities.bindSupported || !capabilities.placements.includes("child")) {
     return {
       ok: false,
-      error: `Thread bindings do not support ${placement} placement for ${policy.channel}.`,
+      error: `Thread bindings do not support ACP thread spawn for ${policy.channel}.`,
     };
   }
   const conversationId = resolveConversationIdForThreadBinding({
-    channel: policy.channel,
     to: params.to,
     threadId: params.threadId,
   });
@@ -458,7 +436,6 @@ function prepareAcpThreadBinding(params: {
     binding: {
       channel: policy.channel,
       accountId: policy.accountId,
-      placement,
       conversationId,
     },
   };
@@ -606,7 +583,7 @@ async function bindPreparedAcpThread(params: {
       accountId: params.preparedBinding.accountId,
       conversationId: params.preparedBinding.conversationId,
     },
-    placement: params.preparedBinding.placement,
+    placement: "child",
     metadata: {
       threadName: resolveThreadBindingThreadName({
         agentId: params.targetAgentId,
@@ -638,14 +615,12 @@ async function bindPreparedAcpThread(params: {
   });
   if (!binding.conversation.conversationId) {
     throw new Error(
-      params.preparedBinding.placement === "child"
-        ? `Failed to create and bind a ${params.preparedBinding.channel} thread for this ACP session.`
-        : `Failed to bind the current ${params.preparedBinding.channel} conversation for this ACP session.`,
+      `Failed to create and bind a ${params.preparedBinding.channel} thread for this ACP session.`,
     );
   }
 
   let sessionEntry = params.initializedRuntime.sessionEntry;
-  if (params.initializedRuntime.sessionId && params.preparedBinding.placement === "child") {
+  if (params.initializedRuntime.sessionId) {
     const boundThreadId = String(binding.conversation.conversationId).trim() || undefined;
     if (boundThreadId) {
       sessionEntry = await persistAcpSpawnSessionFileBestEffort({
@@ -671,42 +646,26 @@ function resolveAcpSpawnBootstrapDeliveryPlan(params: {
   requester: AcpSpawnRequesterState;
   binding: SessionBindingRecord | null;
 }): AcpSpawnBootstrapDeliveryPlan {
-  // Child-thread ACP spawns deliver bootstrap output to the new thread; current-conversation
-  // binds deliver back to the originating target.
+  // For thread-bound ACP spawns, force bootstrap delivery to the new child thread.
   const boundThreadIdRaw = params.binding?.conversation.conversationId;
   const boundThreadId = boundThreadIdRaw ? String(boundThreadIdRaw).trim() || undefined : undefined;
   const fallbackThreadIdRaw = params.requester.origin?.threadId;
   const fallbackThreadId =
     fallbackThreadIdRaw != null ? String(fallbackThreadIdRaw).trim() || undefined : undefined;
   const deliveryThreadId = boundThreadId ?? fallbackThreadId;
-  const requesterConversationId = resolveConversationIdForThreadBinding({
-    channel: params.requester.origin?.channel,
-    threadId: fallbackThreadId,
-    to: params.requester.origin?.to,
-  });
-  const bindingMatchesRequesterConversation = Boolean(
-    params.requester.origin?.channel &&
-    params.binding?.conversation.channel === params.requester.origin.channel &&
-    params.binding?.conversation.accountId === (params.requester.origin.accountId ?? "default") &&
-    requesterConversationId &&
-    params.binding?.conversation.conversationId === requesterConversationId,
-  );
   const boundDeliveryTarget = resolveConversationDeliveryTarget({
     channel: params.requester.origin?.channel ?? params.binding?.conversation.channel,
     conversationId: params.binding?.conversation.conversationId,
     parentConversationId: params.binding?.conversation.parentConversationId,
   });
   const inferredDeliveryTo =
-    (bindingMatchesRequesterConversation ? params.requester.origin?.to?.trim() : undefined) ??
     boundDeliveryTarget.to ??
     params.requester.origin?.to?.trim() ??
     formatConversationTarget({
       channel: params.requester.origin?.channel,
       conversationId: deliveryThreadId,
     });
-  const resolvedDeliveryThreadId = bindingMatchesRequesterConversation
-    ? fallbackThreadId
-    : (boundDeliveryTarget.threadId ?? deliveryThreadId);
+  const resolvedDeliveryThreadId = boundDeliveryTarget.threadId ?? deliveryThreadId;
   const hasDeliveryTarget = Boolean(params.requester.origin?.channel && inferredDeliveryTo);
 
   // Thread-bound session spawns always deliver inline to their bound thread.

@@ -1,4 +1,3 @@
-import { request as httpRequest } from "node:http";
 import { expect, vi } from "vitest";
 import type { ResolvedZaloAccount } from "../../../extensions/zalo/src/accounts.js";
 import {
@@ -283,35 +282,13 @@ export async function postWebhookUpdate(params: {
   secret: string;
   payload: Record<string, unknown>;
 }) {
-  const url = new URL(params.path, params.baseUrl);
-  const body = JSON.stringify(params.payload);
-  return await new Promise<{ status: number; body: string }>((resolve, reject) => {
-    const req = httpRequest(
-      url,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "content-length": Buffer.byteLength(body),
-          "x-bot-api-secret-token": params.secret,
-        },
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (chunk) => {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        });
-        res.on("end", () => {
-          resolve({
-            status: res.statusCode ?? 0,
-            body: Buffer.concat(chunks).toString("utf8"),
-          });
-        });
-      },
-    );
-    req.on("error", reject);
-    req.write(body);
-    req.end();
+  return await fetch(`${params.baseUrl}${params.path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-bot-api-secret-token": params.secret,
+    },
+    body: JSON.stringify(params.payload),
   });
 }
 
@@ -372,9 +349,5 @@ export async function startWebhookLifecycleMonitor(params: {
     route,
     run,
     runtime,
-    stop: async () => {
-      abort.abort();
-      await run;
-    },
   };
 }

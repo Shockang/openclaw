@@ -1,38 +1,10 @@
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
-import type { RuntimeWebFetchFirecrawlMetadata } from "../secrets/runtime-web-tools.types.js";
-import type { RuntimeWebSearchMetadata } from "../secrets/runtime-web-tools.types.js";
 import { withFetchPreconnect } from "../test-utils/fetch-mock.js";
 
-const mockedModuleIds = [
-  "../plugins/tools.js",
-  "../gateway/call.js",
-  "./tools/agents-list-tool.js",
-  "./tools/canvas-tool.js",
-  "./tools/cron-tool.js",
-  "./tools/gateway-tool.js",
-  "./tools/image-generate-tool.js",
-  "./tools/image-tool.js",
-  "./tools/message-tool.js",
-  "./tools/nodes-tool.js",
-  "./tools/pdf-tool.js",
-  "./tools/session-status-tool.js",
-  "./tools/sessions-history-tool.js",
-  "./tools/sessions-list-tool.js",
-  "./tools/sessions-send-tool.js",
-  "./tools/sessions-spawn-tool.js",
-  "./tools/sessions-yield-tool.js",
-  "./tools/subagents-tool.js",
-  "./tools/tts-tool.js",
-] as const;
-
-vi.mock("../plugins/tools.js", async () => {
-  const actual = await vi.importActual<typeof import("../plugins/tools.js")>("../plugins/tools.js");
-  return {
-    ...actual,
-    copyPluginToolMeta: () => undefined,
-  };
-});
+vi.mock("../plugins/tools.js", () => ({
+  resolvePluginTools: () => [],
+}));
 
 vi.mock("../gateway/call.js", () => ({
   callGateway: vi.fn(),
@@ -108,34 +80,14 @@ function asConfig(value: unknown): OpenClawConfig {
 }
 
 let secretsRuntime: typeof import("../secrets/runtime.js");
-let createWebSearchTool: typeof import("./tools/web-tools.js").createWebSearchTool;
-let createWebFetchTool: typeof import("./tools/web-tools.js").createWebFetchTool;
+let createOpenClawTools: typeof import("./openclaw-tools.js").createOpenClawTools;
 
-function requireWebSearchTool(config: OpenClawConfig, runtimeWebSearch?: RuntimeWebSearchMetadata) {
-  const tool = createWebSearchTool({
-    config,
-    sandboxed: true,
-    runtimeWebSearch,
-  });
+function findTool(name: string, config: OpenClawConfig) {
+  const allTools = createOpenClawTools({ config, sandboxed: true });
+  const tool = allTools.find((candidate) => candidate.name === name);
   expect(tool).toBeDefined();
   if (!tool) {
-    throw new Error("missing web_search tool");
-  }
-  return tool;
-}
-
-function requireWebFetchTool(
-  config: OpenClawConfig,
-  runtimeFirecrawl?: RuntimeWebFetchFirecrawlMetadata,
-) {
-  const tool = createWebFetchTool({
-    config,
-    sandboxed: true,
-    runtimeFirecrawl,
-  });
-  expect(tool).toBeDefined();
-  if (!tool) {
-    throw new Error("missing web_fetch tool");
+    throw new Error(`missing ${name} tool`);
   }
   return tool;
 }
@@ -163,18 +115,12 @@ describe("openclaw tools runtime web metadata wiring", () => {
   beforeEach(async () => {
     vi.resetModules();
     secretsRuntime = await import("../secrets/runtime.js");
-    ({ createWebFetchTool, createWebSearchTool } = await import("./tools/web-tools.js"));
+    ({ createOpenClawTools } = await import("./openclaw-tools.js"));
   });
 
   afterEach(() => {
     global.fetch = priorFetch;
     secretsRuntime.clearSecretsRuntimeSnapshot();
-  });
-
-  afterAll(() => {
-    for (const id of mockedModuleIds) {
-      vi.doUnmock(id);
-    }
   });
 
   it("uses runtime-selected provider when higher-precedence provider ref is unresolved", async () => {
@@ -214,7 +160,7 @@ describe("openclaw tools runtime web metadata wiring", () => {
     );
     global.fetch = withFetchPreconnect(mockFetch);
 
-    const webSearch = requireWebSearchTool(snapshot.config, snapshot.webTools.search);
+    const webSearch = findTool("web_search", snapshot.config);
     const result = await webSearch.execute("call-runtime-search", { query: "runtime search" });
 
     expect(mockFetch).toHaveBeenCalled();
@@ -251,7 +197,7 @@ describe("openclaw tools runtime web metadata wiring", () => {
     );
     global.fetch = withFetchPreconnect(mockFetch);
 
-    const webFetch = requireWebFetchTool(snapshot.config, snapshot.webTools.fetch.firecrawl);
+    const webFetch = findTool("web_fetch", snapshot.config);
     await webFetch.execute("call-runtime-fetch", { url: "https://example.com/runtime-off" });
 
     expect(mockFetch).toHaveBeenCalled();

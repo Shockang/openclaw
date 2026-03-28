@@ -1,4 +1,3 @@
-export { applySyntheticConfig, applySyntheticProviderConfig } from "./onboard.js";
 export {
   buildSyntheticModelDefinition,
   SYNTHETIC_BASE_URL,

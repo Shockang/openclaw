@@ -43,7 +43,7 @@ export function supportsAutomaticThreadBindingSpawn(channel: string): boolean {
 
 export function requiresNativeThreadContextForThreadHere(channel: string): boolean {
   const normalized = normalizeChannelId(channel);
-  return normalized !== "telegram" && normalized !== "feishu" && normalized !== "line";
+  return normalized !== "telegram" && normalized !== "feishu";
 }
 
 export function resolveThreadBindingPlacementForCurrentContext(params: {

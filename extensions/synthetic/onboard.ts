@@ -7,7 +7,7 @@ import {
   SYNTHETIC_BASE_URL,
   SYNTHETIC_DEFAULT_MODEL_REF,
   SYNTHETIC_MODEL_CATALOG,
-} from "./models.js";
+} from "./api.js";
 
 export { SYNTHETIC_DEFAULT_MODEL_REF };
 

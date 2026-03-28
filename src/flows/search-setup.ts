@@ -330,31 +330,9 @@ export type SetupSearchOptions = {
   secretInputMode?: SecretInputMode;
 };
 
-async function finalizeSearchProviderSetup(params: {
-  originalConfig: OpenClawConfig;
-  nextConfig: OpenClawConfig;
-  entry: PluginWebSearchProviderEntry;
-  runtime: RuntimeEnv;
-  prompter: WizardPrompter;
-  opts?: SetupSearchOptions;
-}): Promise<OpenClawConfig> {
-  let next = preserveDisabledState(params.originalConfig, params.nextConfig);
-  if (!params.entry.runSetup) {
-    return next;
-  }
-  next = await params.entry.runSetup({
-    config: next,
-    runtime: params.runtime,
-    prompter: params.prompter,
-    quickstartDefaults: params.opts?.quickstartDefaults,
-    secretInputMode: params.opts?.secretInputMode,
-  });
-  return preserveDisabledState(params.originalConfig, next);
-}
-
 export async function runSearchSetupFlow(
   config: OpenClawConfig,
-  runtime: RuntimeEnv,
+  _runtime: RuntimeEnv,
   prompter: WizardPrompter,
   opts?: SetupSearchOptions,
 ): Promise<OpenClawConfig> {
@@ -435,14 +413,7 @@ export async function runSearchSetupFlow(
     const result = existingKey
       ? applySearchKey(config, choice, existingKey)
       : applySearchProviderSelection(config, choice);
-    return await finalizeSearchProviderSetup({
-      originalConfig: config,
-      nextConfig: result,
-      entry,
-      runtime,
-      prompter,
-      opts,
-    });
+    return preserveDisabledState(config, result);
   }
 
   if (!needsCredential) {
@@ -454,27 +425,13 @@ export async function runSearchSetupFlow(
       ].join("\n"),
       "Web search",
     );
-    return await finalizeSearchProviderSetup({
-      originalConfig: config,
-      nextConfig: applySearchProviderSelection(config, choice),
-      entry,
-      runtime,
-      prompter,
-      opts,
-    });
+    return preserveDisabledState(config, applySearchProviderSelection(config, choice));
   }
 
   const useSecretRefMode = opts?.secretInputMode === "ref"; // pragma: allowlist secret
   if (useSecretRefMode) {
     if (keyConfigured) {
-      return await finalizeSearchProviderSetup({
-        originalConfig: config,
-        nextConfig: applySearchProviderSelection(config, choice),
-        entry,
-        runtime,
-        prompter,
-        opts,
-      });
+      return preserveDisabledState(config, applySearchProviderSelection(config, choice));
     }
     const ref = buildSearchEnvRef(config, choice);
     await prompter.note(
@@ -486,14 +443,7 @@ export async function runSearchSetupFlow(
       ].join("\n"),
       "Web search",
     );
-    return await finalizeSearchProviderSetup({
-      originalConfig: config,
-      nextConfig: applySearchKey(config, choice, ref),
-      entry,
-      runtime,
-      prompter,
-      opts,
-    });
+    return applySearchKey(config, choice, ref);
   }
 
   const keyInput = await prompter.text({
@@ -508,36 +458,15 @@ export async function runSearchSetupFlow(
   const key = keyInput?.trim() ?? "";
   if (key) {
     const secretInput = resolveSearchSecretInput(config, choice, key, opts?.secretInputMode);
-    return await finalizeSearchProviderSetup({
-      originalConfig: config,
-      nextConfig: applySearchKey(config, choice, secretInput),
-      entry,
-      runtime,
-      prompter,
-      opts,
-    });
+    return applySearchKey(config, choice, secretInput);
   }
 
   if (existingKey) {
-    return await finalizeSearchProviderSetup({
-      originalConfig: config,
-      nextConfig: applySearchKey(config, choice, existingKey),
-      entry,
-      runtime,
-      prompter,
-      opts,
-    });
+    return preserveDisabledState(config, applySearchKey(config, choice, existingKey));
   }
 
   if (keyConfigured || envAvailable) {
-    return await finalizeSearchProviderSetup({
-      originalConfig: config,
-      nextConfig: applySearchProviderSelection(config, choice),
-      entry,
-      runtime,
-      prompter,
-      opts,
-    });
+    return preserveDisabledState(config, applySearchProviderSelection(config, choice));
   }
 
   await prompter.note(

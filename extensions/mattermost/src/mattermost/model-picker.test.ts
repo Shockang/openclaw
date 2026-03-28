@@ -23,7 +23,6 @@ const data = {
     provider: "anthropic",
     model: "claude-opus-4-5",
   },
-  modelNames: new Map<string, string>(),
 };
 
 describe("Mattermost model picker", () => {
@@ -155,7 +154,6 @@ describe("Mattermost model picker", () => {
           provider: "openai",
           model: "gpt-5",
         },
-        modelNames: new Map<string, string>(),
       };
 
       expect(

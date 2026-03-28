@@ -92,7 +92,6 @@ export default defineConfig({
     setupFiles: ["test/setup.ts"],
     exclude: [
       "dist/**",
-      "test/fixtures/**",
       "apps/macos/**",
       "apps/macos/.build/**",
       "**/node_modules/**",

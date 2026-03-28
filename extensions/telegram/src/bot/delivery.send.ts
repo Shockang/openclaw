@@ -3,7 +3,6 @@ import type { RuntimeEnv } from "openclaw/plugin-sdk/runtime-env";
 import { formatErrorMessage } from "openclaw/plugin-sdk/ssrf-runtime";
 import { withTelegramApiErrorLogging } from "../api-logging.js";
 import { markdownToTelegramHtml } from "../format.js";
-import { normalizeTelegramReplyToMessageId } from "../outbound-params.js";
 import { buildInlineKeyboard } from "../send.js";
 import { buildTelegramThreadParams, type TelegramThreadSpec } from "./helpers.js";
 
@@ -83,9 +82,8 @@ export function buildTelegramSendParams(opts?: {
 }): Record<string, unknown> {
   const threadParams = buildTelegramThreadParams(opts?.thread);
   const params: Record<string, unknown> = {};
-  const replyToMessageId = normalizeTelegramReplyToMessageId(opts?.replyToMessageId);
-  if (replyToMessageId != null) {
-    params.reply_to_message_id = replyToMessageId;
+  if (opts?.replyToMessageId) {
+    params.reply_to_message_id = opts.replyToMessageId;
     params.allow_sending_without_reply = true;
   }
   if (threadParams) {
