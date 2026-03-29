@@ -203,7 +203,7 @@ describe("AcpxRuntime", () => {
 
       expect(events).toContainEqual({
         type: "error",
-        message: "acpx exited with signal SIGTERM",
+        message: "acpx exited with code 1",
       });
       expect(events.some((event) => event.type === "done")).toBe(false);
     } finally {
@@ -553,7 +553,7 @@ describe("AcpxRuntime", () => {
 
       await expect(runtime.getStatus({ handle })).rejects.toMatchObject({
         code: "ACP_TURN_FAILED",
-        message: "acpx exited with signal SIGTERM",
+        message: "acpx exited with code 1",
       });
     } finally {
       if (previousSignal === undefined) {
