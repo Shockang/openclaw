@@ -863,7 +863,6 @@ export class AcpSessionManager {
               backend: meta?.backend ?? resolvedMeta.backend,
               error: acpError,
               sawTurnOutput,
-              backend: meta?.backend ?? resolvedMeta.backend,
             });
             if (retryFreshHandle) {
               continue;
@@ -1579,7 +1578,6 @@ export class AcpSessionManager {
     backend?: string;
     error: AcpRuntimeError;
     sawTurnOutput: boolean;
-    backend?: string;
   }): boolean {
     if (params.attempt > 0 || params.sawTurnOutput) {
       return false;
@@ -1618,28 +1616,7 @@ export class AcpSessionManager {
     if (params.error.code !== "ACP_TURN_FAILED") {
       return false;
     }
-    return /^queue owner unavailable[.!]?$/i.test(normalized);
-  }
-
-  private isRetryableAcpxStartupFailure(params: {
-    backend: string | undefined;
-    error: AcpRuntimeError;
-  }): boolean {
-    const backend = params.backend?.trim().toLowerCase();
-    if (backend !== "acpx") {
-      return false;
-    }
-    const normalized = params.error.message.trim();
-    if (this.isRecoverableAcpxExitError(normalized)) {
-      return true;
-    }
-    if (params.error.code !== "ACP_TURN_FAILED") {
-      return false;
-    }
-    return (
-      /^acpx exited with signal [a-z0-9]+/i.test(normalized) ||
-      /\bqueue owner\b.*\bunavailable\b/i.test(normalized)
-    );
+    return /\bqueue owner\b.*\bunavailable\b/i.test(normalized);
   }
 
   private async evictIdleRuntimeHandles(params: { cfg: OpenClawConfig }): Promise<void> {
