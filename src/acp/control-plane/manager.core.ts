@@ -773,10 +773,10 @@ export class AcpSessionManager {
                   continue;
                 }
                 if (event.type === "error") {
-                  streamError = new AcpRuntimeError(
-                    normalizeAcpErrorCode(event.code),
-                    event.message?.trim() || "ACP turn failed before completion.",
-                  );
+                  const normalizedCode = normalizeAcpErrorCode(event.code);
+                  const normalizedMessage =
+                    event.message?.trim() || "ACP turn failed before completion.";
+                  streamError = new AcpRuntimeError(normalizedCode, normalizedMessage);
                 } else if (event.type === "text_delta" || event.type === "tool_call") {
                   sawTurnOutput = true;
                   if (event.type === "text_delta" && event.stream !== "thought" && event.text) {
@@ -1616,7 +1616,12 @@ export class AcpSessionManager {
     if (params.error.code !== "ACP_TURN_FAILED") {
       return false;
     }
-    return /\bqueue owner\b.*\bunavailable\b/i.test(normalized);
+    return (
+      /^queue owner unavailable$/i.test(normalized) ||
+      /^queue owner unavailable\b.*\b(start(?:ing|up)?|initializ(?:e|ing|ation)|bootstrap)\b/i.test(
+        normalized,
+      )
+    );
   }
 
   private async evictIdleRuntimeHandles(params: { cfg: OpenClawConfig }): Promise<void> {

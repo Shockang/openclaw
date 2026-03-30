@@ -59,7 +59,9 @@ describe("acpx plugin config parsing", () => {
       fs.writeFileSync(path.join(bundledPluginRoot, "openclaw.plugin.json"), "{}\n", "utf8");
 
       const moduleUrl = pathToFileURL(path.join(bundledPluginRoot, "index.js")).href;
-      expect(resolveAcpxPluginRoot(moduleUrl)).toBe(workspacePluginRoot);
+      expect(path.normalize(resolveAcpxPluginRoot(moduleUrl))).toBe(
+        path.normalize(workspacePluginRoot),
+      );
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }
