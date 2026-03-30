@@ -711,6 +711,7 @@ export class AcpSessionManager {
           let onCallerAbort: (() => void) | undefined;
           let activeTurnStarted = false;
           let sawTurnOutput = false;
+          let sawTurnDone = false;
           let retryFreshHandle = false;
           let skipPostTurnCleanup = false;
           try {
@@ -777,6 +778,8 @@ export class AcpSessionManager {
                   const normalizedMessage =
                     event.message?.trim() || "ACP turn failed before completion.";
                   streamError = new AcpRuntimeError(normalizedCode, normalizedMessage);
+                } else if (event.type === "done") {
+                  sawTurnDone = true;
                 } else if (event.type === "text_delta" || event.type === "tool_call") {
                   sawTurnOutput = true;
                   if (event.type === "text_delta" && event.stream !== "thought" && event.text) {
@@ -863,6 +866,7 @@ export class AcpSessionManager {
               backend: meta?.backend ?? resolvedMeta.backend,
               error: acpError,
               sawTurnOutput,
+              sawTurnDone,
             });
             if (retryFreshHandle) {
               continue;
@@ -1578,8 +1582,9 @@ export class AcpSessionManager {
     backend?: string;
     error: AcpRuntimeError;
     sawTurnOutput: boolean;
+    sawTurnDone: boolean;
   }): boolean {
-    if (params.attempt > 0 || params.sawTurnOutput) {
+    if (params.attempt > 0 || params.sawTurnOutput || params.sawTurnDone) {
       return false;
     }
     if (
