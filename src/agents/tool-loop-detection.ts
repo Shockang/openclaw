@@ -11,7 +11,9 @@ export type LoopDetectorKind =
   | "unknown_tool_repeat"
   | "known_poll_no_progress"
   | "global_circuit_breaker"
-  | "ping_pong";
+  | "ping_pong"
+  | "consecutive_errors"
+  | "max_calls_per_turn";
 
 export type LoopDetectionResult =
   | { stuck: false }
@@ -30,6 +32,8 @@ export const WARNING_THRESHOLD = 10;
 export const UNKNOWN_TOOL_THRESHOLD = 10;
 export const CRITICAL_THRESHOLD = 20;
 export const GLOBAL_CIRCUIT_BREAKER_THRESHOLD = 30;
+export const CONSECUTIVE_ERROR_THRESHOLD = 10;
+export const MAX_CALLS_PER_TURN = 200;
 const DEFAULT_LOOP_DETECTION_CONFIG = {
   enabled: false,
   historySize: TOOL_CALL_HISTORY_SIZE,
@@ -37,6 +41,8 @@ const DEFAULT_LOOP_DETECTION_CONFIG = {
   unknownToolThreshold: UNKNOWN_TOOL_THRESHOLD,
   criticalThreshold: CRITICAL_THRESHOLD,
   globalCircuitBreakerThreshold: GLOBAL_CIRCUIT_BREAKER_THRESHOLD,
+  consecutiveErrorThreshold: CONSECUTIVE_ERROR_THRESHOLD,
+  maxCallsPerTurn: MAX_CALLS_PER_TURN,
   detectors: {
     genericRepeat: true,
     knownPollNoProgress: true,
@@ -51,6 +57,8 @@ type ResolvedLoopDetectionConfig = {
   unknownToolThreshold: number;
   criticalThreshold: number;
   globalCircuitBreakerThreshold: number;
+  consecutiveErrorThreshold: number;
+  maxCallsPerTurn: number;
   detectors: {
     genericRepeat: boolean;
     knownPollNoProgress: boolean;
@@ -113,6 +121,14 @@ function resolveLoopDetectionConfig(config?: ToolLoopDetectionConfig): ResolvedL
     ),
     criticalThreshold,
     globalCircuitBreakerThreshold,
+    consecutiveErrorThreshold: asPositiveInt(
+      config?.consecutiveErrorThreshold,
+      DEFAULT_LOOP_DETECTION_CONFIG.consecutiveErrorThreshold,
+    ),
+    maxCallsPerTurn: asPositiveInt(
+      config?.maxCallsPerTurn,
+      DEFAULT_LOOP_DETECTION_CONFIG.maxCallsPerTurn,
+    ),
     detectors: {
       genericRepeat:
         config?.detectors?.genericRepeat ?? DEFAULT_LOOP_DETECTION_CONFIG.detectors.genericRepeat,
@@ -491,6 +507,22 @@ function canonicalPairKey(signatureA: string, signatureB: string): string {
   return [signatureA, signatureB].toSorted().join("|");
 }
 
+function getConsecutiveErrorStreak(history: Array<{ resultHash?: string }>): number {
+  let streak = 0;
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const record = history[i];
+    if (!record?.resultHash) {
+      break;
+    }
+    if (record.resultHash.startsWith("error:")) {
+      streak += 1;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
 /**
  * Detect if an agent is stuck in a repetitive tool call loop.
  * Checks if the same tool+params combination has been called excessively.
@@ -609,6 +641,35 @@ export function detectToolCallLoop(
     };
   }
 
+  const consecutiveErrorStreak = getConsecutiveErrorStreak(history);
+  if (consecutiveErrorStreak >= resolvedConfig.consecutiveErrorThreshold) {
+    log.error(
+      `Consecutive error cascade detected: ${consecutiveErrorStreak} consecutive errors across tools. Current tool: ${toolName}`,
+    );
+    return {
+      stuck: true,
+      level: "critical",
+      detector: "consecutive_errors",
+      count: consecutiveErrorStreak,
+      message: `CRITICAL: ${consecutiveErrorStreak} consecutive tool calls have returned errors across different tools. This indicates a cascading failure and further tool calls will also fail. Session execution blocked to prevent error cascade loops.`,
+      warningKey: "consecutive_error_cascade",
+    };
+  }
+
+  if ((state.turnToolCallCount ?? 0) >= resolvedConfig.maxCallsPerTurn) {
+    log.error(
+      `Per-turn tool call limit reached: ${state.turnToolCallCount} calls (limit: ${resolvedConfig.maxCallsPerTurn}). Blocking ${toolName}.`,
+    );
+    return {
+      stuck: true,
+      level: "critical",
+      detector: "max_calls_per_turn",
+      count: state.turnToolCallCount ?? history.length,
+      message: `CRITICAL: Per-turn tool call limit reached (${state.turnToolCallCount ?? history.length}/${resolvedConfig.maxCallsPerTurn}). Session execution blocked to prevent runaway tool usage.`,
+      warningKey: "max_calls_per_turn",
+    };
+  }
+
   // Generic detector: warn-only for repeated identical calls.
   const recentCount = history.filter(
     (h) => h.toolName === toolName && h.argsHash === currentHash,
@@ -662,6 +723,19 @@ export function recordToolCall(
   if (state.toolCallHistory.length > resolvedConfig.historySize) {
     state.toolCallHistory.shift();
   }
+
+  const now = Date.now();
+  const TURN_RESET_MS = 60_000;
+  if (
+    state.turnToolCallCount == null ||
+    state.turnToolCallCountLastAt == null ||
+    now - state.turnToolCallCountLastAt > TURN_RESET_MS
+  ) {
+    state.turnToolCallCount = 1;
+  } else {
+    state.turnToolCallCount += 1;
+  }
+  state.turnToolCallCountLastAt = now;
 }
 
 /**
