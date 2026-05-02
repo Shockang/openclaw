@@ -9,6 +9,8 @@ export type SessionState = {
   toolCallHistory?: ToolCallRecord[];
   toolLoopWarningBuckets?: Map<string, number>;
   commandPollCounts?: Map<string, { count: number; lastPollAt: number }>;
+  turnToolCallCount?: number;
+  turnToolCallCountLastAt?: number;
 };
 
 export type ToolCallRecord = {

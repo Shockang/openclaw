@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { ToolLoopDetectionConfig } from "../config/types.tools.js";
 import type { SessionState } from "../logging/diagnostic-session-state.js";
 import {
+  CONSECUTIVE_ERROR_THRESHOLD,
   CRITICAL_THRESHOLD,
   GLOBAL_CIRCUIT_BREAKER_THRESHOLD,
+  MAX_CALLS_PER_TURN,
   TOOL_CALL_HISTORY_SIZE,
   UNKNOWN_TOOL_THRESHOLD,
   WARNING_THRESHOLD,
@@ -885,6 +887,129 @@ describe("tool-loop-detection", () => {
       const stats = getToolCallStats(state);
       expect(stats.mostFrequent?.toolName).toBe("read");
       expect(stats.mostFrequent?.count).toBe(7);
+    });
+  });
+
+  describe("consecutive error cascade detection", () => {
+    function recordErroredCall(
+      state: SessionState,
+      toolName: string,
+      params: unknown,
+      index: number,
+    ): void {
+      const toolCallId = `${toolName}-err-${index}`;
+      recordToolCall(state, toolName, params, toolCallId);
+      recordToolCallOutcome(state, {
+        toolName,
+        toolParams: params,
+        toolCallId,
+        error: new Error("Aborted"),
+      });
+    }
+
+    it("does not trigger when disabled", () => {
+      const state = createState();
+      for (let i = 0; i < 15; i += 1) {
+        recordErroredCall(state, `tool_${i}`, { idx: i }, i);
+      }
+      const result = detectToolCallLoop(state, "tool_next", {}, { enabled: false });
+      expect(result.stuck).toBe(false);
+    });
+
+    it("does not trigger below threshold", () => {
+      const state = createState();
+      const lowConfig: ToolLoopDetectionConfig = {
+        enabled: true,
+        consecutiveErrorThreshold: 10,
+      };
+      for (let i = 0; i < 9; i += 1) {
+        recordErroredCall(state, `tool_${i}`, { idx: i }, i);
+      }
+      const result = detectToolCallLoop(state, "tool_next", {}, lowConfig);
+      expect(result.stuck).toBe(false);
+    });
+
+    it("triggers critical when consecutive errors across different tools exceed threshold", () => {
+      const state = createState();
+      const config: ToolLoopDetectionConfig = {
+        enabled: true,
+        consecutiveErrorThreshold: 10,
+      };
+      for (let i = 0; i < 10; i += 1) {
+        recordErroredCall(state, `tool_${i}`, { idx: i }, i);
+      }
+      const result = detectToolCallLoop(state, "tool_next", { next: true }, config);
+      expect(result.stuck).toBe(true);
+      expect(result.level).toBe("critical");
+      expect(result.detector).toBe("consecutive_errors");
+      expect(result.count).toBe(10);
+    });
+
+    it("stops counting when a non-error result breaks the streak", () => {
+      const state = createState();
+      const config: ToolLoopDetectionConfig = {
+        enabled: true,
+        consecutiveErrorThreshold: 10,
+      };
+      for (let i = 0; i < 5; i += 1) {
+        recordErroredCall(state, `tool_${i}`, { idx: i }, i);
+      }
+      recordSuccessfulCall(state, "read", { path: "/ok.txt" }, { content: "ok" }, 99);
+      for (let i = 0; i < 5; i += 1) {
+        recordErroredCall(state, `tool_b_${i}`, { idx: i }, i + 100);
+      }
+      const result = detectToolCallLoop(state, "tool_next", {}, config);
+      expect(result.stuck).toBe(false);
+    });
+
+    it("uses default CONSECUTIVE_ERROR_THRESHOLD when not configured", () => {
+      expect(CONSECUTIVE_ERROR_THRESHOLD).toBe(10);
+    });
+  });
+
+  describe("max calls per turn", () => {
+    it("does not trigger below limit", () => {
+      const state = createState();
+      for (let i = 0; i < 5; i += 1) {
+        recordToolCall(state, "read", { path: `/f${i}.txt` }, `call-${i}`);
+      }
+      const result = detectToolCallLoop(
+        state,
+        "read",
+        { path: "/next.txt" },
+        {
+          enabled: true,
+          maxCallsPerTurn: 10,
+        },
+      );
+      expect(result.stuck).toBe(false);
+    });
+
+    it("triggers critical when turn count reaches limit", () => {
+      const state = createState();
+      const limit = 5;
+      for (let i = 0; i < limit; i += 1) {
+        recordToolCall(state, `tool_${i}`, { idx: i }, `call-${i}`);
+      }
+      const result = detectToolCallLoop(
+        state,
+        "tool_next",
+        {},
+        {
+          enabled: true,
+          maxCallsPerTurn: limit,
+        },
+      );
+      expect(result.stuck).toBe(true);
+      if (result.stuck) {
+        expect(result.level).toBe("critical");
+        expect(result.detector).toBe("max_calls_per_turn");
+        expect(result.count).toBe(limit);
+      }
+    });
+
+    it("uses default MAX_CALLS_PER_TURN when not configured", () => {
+      expect(MAX_CALLS_PER_TURN).toBe(200);
     });
   });
 });

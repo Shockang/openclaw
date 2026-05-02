@@ -180,6 +180,10 @@ export type ToolLoopDetectionConfig = {
   criticalThreshold?: number;
   /** Global no-progress breaker threshold (default: 30). */
   globalCircuitBreakerThreshold?: number;
+  /** Consecutive cross-tool error cascade threshold (default: 10). */
+  consecutiveErrorThreshold?: number;
+  /** Hard per-turn tool call ceiling. Blocks all further calls once reached (default: 200). */
+  maxCallsPerTurn?: number;
   /** Detector toggles. */
   detectors?: ToolLoopDetectionDetectorConfig;
 };
