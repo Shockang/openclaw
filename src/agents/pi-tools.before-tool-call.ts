@@ -640,6 +640,15 @@ export function wrapToolWithBeforeToolCallHook(
           reason: outcome.reason,
           deniedReason: outcome.deniedReason ?? "plugin-before-tool-call",
         });
+        if (outcome.deniedReason !== "tool-loop") {
+          await recordLoopOutcome({
+            ctx,
+            toolName: normalizedToolName,
+            toolParams: outcome.params ?? params,
+            toolCallId,
+            result: blockedResult,
+          });
+        }
         return blockedResult;
       }
       if (toolCallId) {
