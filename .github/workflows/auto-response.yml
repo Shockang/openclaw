@@ -24,6 +24,10 @@ jobs:
       issues: write
       pull-requests: write
     runs-on: ubuntu-24.04
+    env:
+      HAS_GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY != '' }}
+      HAS_GH_APP_PRIVATE_KEY_FALLBACK: ${{ secrets.GH_APP_PRIVATE_KEY_FALLBACK != '' }}
+      HAS_ANY_GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY != '' || secrets.GH_APP_PRIVATE_KEY_FALLBACK != '' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -31,17 +35,27 @@ jobs:
           persist-credentials: false
       - uses: actions/create-github-app-token@v3
         id: app-token
+        if: ${{ env.HAS_GH_APP_PRIVATE_KEY == 'true' }}
         continue-on-error: true
         with:
           app-id: "2729701"
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
       - uses: actions/create-github-app-token@v3
         id: app-token-fallback
-        if: steps.app-token.outcome == 'failure'
+        if: ${{ (steps.app-token.outcome == 'failure' || steps.app-token.outcome == 'skipped') && env.HAS_GH_APP_PRIVATE_KEY_FALLBACK == 'true' }}
         with:
           app-id: "2971289"
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY_FALLBACK }}
+      - name: Skip auto-response when GitHub App secrets are unavailable
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY != 'true' }}
+        run: echo "::notice::Skipping auto-response in this repository because no GitHub App private key secret is configured."
+      - name: Verify auto-response token creation
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && steps.app-token.outcome != 'success' && steps.app-token-fallback.outcome != 'success' }}
+        run: |
+          echo "::error::Unable to mint a GitHub App token for auto-response."
+          exit 1
       - name: Run Barnacle auto-response
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && (steps.app-token.outcome == 'success' || steps.app-token-fallback.outcome == 'success') }}
         uses: actions/github-script@v9
         with:
           github-token: ${{ steps.app-token.outputs.token || steps.app-token-fallback.outputs.token }}

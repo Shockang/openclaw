@@ -31,26 +31,41 @@ jobs:
       contents: read
       pull-requests: write
     runs-on: ubuntu-24.04
+    env:
+      HAS_GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY != '' }}
+      HAS_GH_APP_PRIVATE_KEY_FALLBACK: ${{ secrets.GH_APP_PRIVATE_KEY_FALLBACK != '' }}
+      HAS_ANY_GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY != '' || secrets.GH_APP_PRIVATE_KEY_FALLBACK != '' }}
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
+        if: ${{ env.HAS_GH_APP_PRIVATE_KEY == 'true' }}
         continue-on-error: true
         with:
           app-id: "2729701"
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
       - uses: actions/create-github-app-token@v3
         id: app-token-fallback
-        if: steps.app-token.outcome == 'failure'
+        if: ${{ (steps.app-token.outcome == 'failure' || steps.app-token.outcome == 'skipped') && env.HAS_GH_APP_PRIVATE_KEY_FALLBACK == 'true' }}
         with:
           app-id: "2971289"
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY_FALLBACK }}
+      - name: Skip labeling when GitHub App secrets are unavailable
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY != 'true' }}
+        run: echo "::notice::Skipping labeler in this repository because no GitHub App private key secret is configured."
+      - name: Verify labeling token creation
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && steps.app-token.outcome != 'success' && steps.app-token-fallback.outcome != 'success' }}
+        run: |
+          echo "::error::Unable to mint a GitHub App token for labeler."
+          exit 1
       - uses: actions/labeler@v6
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && (steps.app-token.outcome == 'success' || steps.app-token-fallback.outcome == 'success') }}
         with:
           configuration-path: .github/labeler.yml
           repo-token: ${{ steps.app-token.outputs.token || steps.app-token-fallback.outputs.token }}
           sync-labels: true
       - name: Apply PR size label
         uses: actions/github-script@v9
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && (steps.app-token.outcome == 'success' || steps.app-token-fallback.outcome == 'success') }}
         with:
           github-token: ${{ steps.app-token.outputs.token || steps.app-token-fallback.outputs.token }}
           script: |
@@ -140,6 +155,7 @@ jobs:
             });
       - name: Apply maintainer or trusted-contributor label
         uses: actions/github-script@v9
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && (steps.app-token.outcome == 'success' || steps.app-token-fallback.outcome == 'success') }}
         with:
           github-token: ${{ steps.app-token.outputs.token || steps.app-token-fallback.outputs.token }}
           script: |
@@ -211,6 +227,7 @@ jobs:
             // }
       - name: Apply beta-blocker title label
         uses: actions/github-script@v9
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && (steps.app-token.outcome == 'success' || steps.app-token-fallback.outcome == 'success') }}
         with:
           github-token: ${{ steps.app-token.outputs.token || steps.app-token-fallback.outputs.token }}
           script: |
@@ -264,6 +281,7 @@ jobs:
             }
       - name: Apply too-many-prs label
         uses: actions/github-script@v9
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && (steps.app-token.outcome == 'success' || steps.app-token-fallback.outcome == 'success') }}
         with:
           github-token: ${{ steps.app-token.outputs.token || steps.app-token-fallback.outputs.token }}
           script: |
@@ -465,21 +483,35 @@ jobs:
       contents: read
       pull-requests: write
     runs-on: ubuntu-24.04
+    env:
+      HAS_GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY != '' }}
+      HAS_GH_APP_PRIVATE_KEY_FALLBACK: ${{ secrets.GH_APP_PRIVATE_KEY_FALLBACK != '' }}
+      HAS_ANY_GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY != '' || secrets.GH_APP_PRIVATE_KEY_FALLBACK != '' }}
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
+        if: ${{ env.HAS_GH_APP_PRIVATE_KEY == 'true' }}
         continue-on-error: true
         with:
           app-id: "2729701"
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
       - uses: actions/create-github-app-token@v3
         id: app-token-fallback
-        if: steps.app-token.outcome == 'failure'
+        if: ${{ (steps.app-token.outcome == 'failure' || steps.app-token.outcome == 'skipped') && env.HAS_GH_APP_PRIVATE_KEY_FALLBACK == 'true' }}
         with:
           app-id: "2971289"
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY_FALLBACK }}
+      - name: Skip PR label backfill when GitHub App secrets are unavailable
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY != 'true' }}
+        run: echo "::notice::Skipping PR label backfill in this repository because no GitHub App private key secret is configured."
+      - name: Verify PR label backfill token creation
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && steps.app-token.outcome != 'success' && steps.app-token-fallback.outcome != 'success' }}
+        run: |
+          echo "::error::Unable to mint a GitHub App token for PR label backfill."
+          exit 1
       - name: Backfill PR labels
         uses: actions/github-script@v9
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && (steps.app-token.outcome == 'success' || steps.app-token-fallback.outcome == 'success') }}
         with:
           github-token: ${{ steps.app-token.outputs.token || steps.app-token-fallback.outputs.token }}
           script: |
@@ -763,21 +795,35 @@ jobs:
     permissions:
       issues: write
     runs-on: ubuntu-24.04
+    env:
+      HAS_GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY != '' }}
+      HAS_GH_APP_PRIVATE_KEY_FALLBACK: ${{ secrets.GH_APP_PRIVATE_KEY_FALLBACK != '' }}
+      HAS_ANY_GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY != '' || secrets.GH_APP_PRIVATE_KEY_FALLBACK != '' }}
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
+        if: ${{ env.HAS_GH_APP_PRIVATE_KEY == 'true' }}
         continue-on-error: true
         with:
           app-id: "2729701"
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
       - uses: actions/create-github-app-token@v3
         id: app-token-fallback
-        if: steps.app-token.outcome == 'failure'
+        if: ${{ (steps.app-token.outcome == 'failure' || steps.app-token.outcome == 'skipped') && env.HAS_GH_APP_PRIVATE_KEY_FALLBACK == 'true' }}
         with:
           app-id: "2971289"
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY_FALLBACK }}
+      - name: Skip issue labeling when GitHub App secrets are unavailable
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY != 'true' }}
+        run: echo "::notice::Skipping issue labeler in this repository because no GitHub App private key secret is configured."
+      - name: Verify issue labeling token creation
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && steps.app-token.outcome != 'success' && steps.app-token-fallback.outcome != 'success' }}
+        run: |
+          echo "::error::Unable to mint a GitHub App token for issue labeling."
+          exit 1
       - name: Apply maintainer or trusted-contributor label
         uses: actions/github-script@v9
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && (steps.app-token.outcome == 'success' || steps.app-token-fallback.outcome == 'success') }}
         with:
           github-token: ${{ steps.app-token.outputs.token || steps.app-token-fallback.outputs.token }}
           script: |
@@ -849,6 +895,7 @@ jobs:
             // }
       - name: Apply beta-blocker title label
         uses: actions/github-script@v9
+        if: ${{ env.HAS_ANY_GH_APP_PRIVATE_KEY == 'true' && (steps.app-token.outcome == 'success' || steps.app-token-fallback.outcome == 'success') }}
         with:
           github-token: ${{ steps.app-token.outputs.token || steps.app-token-fallback.outputs.token }}
           script: |
