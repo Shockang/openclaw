@@ -181,7 +181,7 @@ describe("before_tool_call loop detection behavior", () => {
   function expectCriticalLoopEvent(
     loopEvent: DiagnosticToolLoopEvent | undefined,
     params: {
-      detector: "ping_pong" | "known_poll_no_progress";
+      detector: "ping_pong" | "known_poll_no_progress" | "global_circuit_breaker";
       toolName: string;
       count?: number;
     },
@@ -620,6 +620,48 @@ describe("before_tool_call loop detection behavior", () => {
         toolCallId: "tool-call-blocked",
         deniedReason: "plugin-before-tool-call",
         reason: "blocked by policy",
+      });
+    });
+  });
+
+  it("keeps recording non-loop veto outcomes so repeated policy blocks still trip loop detection", async () => {
+    hookRunner.hasHooks.mockReturnValue(true);
+    hookRunner.runBeforeToolCall.mockResolvedValue({
+      block: true,
+      blockReason: "blocked by policy",
+    });
+    const execute = vi.fn().mockResolvedValue({ content: [{ type: "text", text: "nope" }] });
+    const tool = wrapToolWithBeforeToolCallHook({ name: "read", execute } as any, {
+      agentId: "main",
+      sessionKey: "session-key",
+      loopDetection: {
+        enabled: true,
+        warningThreshold: 1,
+        criticalThreshold: 2,
+        globalCircuitBreakerThreshold: 3,
+      },
+    });
+
+    await withToolLoopEvents(async (emitted) => {
+      for (let i = 0; i < 3; i += 1) {
+        const result = await tool.execute(`tool-call-policy-${i}`, { path: "/tmp/file" });
+        expect(result).toMatchObject({
+          details: {
+            status: "blocked",
+            deniedReason: "plugin-before-tool-call",
+            reason: "blocked by policy",
+          },
+        });
+      }
+
+      const blocked = await tool.execute("tool-call-policy-3", { path: "/tmp/file" });
+      expectToolLoopBlockedResult(blocked, "CRITICAL");
+
+      const loopEvent = emitted.at(-1);
+      expectCriticalLoopEvent(loopEvent, {
+        detector: "global_circuit_breaker",
+        toolName: "read",
+        count: 3,
       });
     });
   });
